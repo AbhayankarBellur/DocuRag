@@ -1,0 +1,8 @@
+[
+    {
+        "prompt_id": "ab43c215-1201-4a34-83c5-d55e47821c94",
+        "retrieval_id": "e0348682-db79-4bc2-a545-b6eb73723a1a",
+        "question": "How do transformers convert words into vectors?",
+        "prompt_file": "ab43c215-1201-4a34-83c5-d55e47821c94.json"
+    }
+]

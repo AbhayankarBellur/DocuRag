@@ -1,0 +1,10 @@
+[
+    {
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_file": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6_chunks.json",
+        "chunk_count": 25,
+        "strategy": "fixed_character",
+        "chunk_size": 500,
+        "overlap": 100
+    }
+]

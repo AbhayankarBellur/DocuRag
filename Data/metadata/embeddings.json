@@ -1,0 +1,11 @@
+{
+    "documents": [
+        {
+            "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+            "embedding_file": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6_embeddings.json",
+            "embedding_model": "BAAI/bge-small-en-v1.5",
+            "embedding_dimension": 384,
+            "total_embeddings": 25
+        }
+    ]
+}

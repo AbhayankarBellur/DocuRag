@@ -1,0 +1,377 @@
+[
+    {
+        "chunk_id": "bb15390c-fcd7-4472-8796-db06731d0843",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 0,
+        "start_character": 0,
+        "end_character": 500,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "From Words to Answers How a language model turns your question into a response, and how Retrieval-Augmented Generation (RAG) gives it new knowledge without retraining it — explained simply, with the underlying math alongside. The Big Picture There are four layers between what you type and what the model does with it: the knowledge a human cares about, translated into language (words), which the model converts into mathematics (numbers and vectors), which flows through a neural network to eventua"
+        }
+    },
+    {
+        "chunk_id": "4be26b26-7dc0-4d40-a1a2-6643302eec89",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 1,
+        "start_character": 400,
+        "end_character": 900,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "del converts into mathematics (numbers and vectors), which flows through a neural network to eventually produce more language back. Everything interesting happens in that middle mathematical layer, invisible to us. Step 1 — Language Becomes Numbers (Tokenizer) In plain terms Your sentence is chopped into small chunks (words or word-pieces), and each chunk is looked up in a giant dictionary that assigns it an ID number. Nothing intelligent has happened yet — it's just indexing, the same way a wor"
+        }
+    },
+    {
+        "chunk_id": "9fde1918-ffea-46e0-8a0a-9fd7344242c2",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 2,
+        "start_character": 800,
+        "end_character": 1300,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "signs it an ID number. Nothing intelligent has happened yet — it's just indexing, the same way a word gets a page number in a book. The math \"What\" → token ID 198 (vocabulary lookup, no math yet) Technical detail The tokenizer maps each sub-word unit to an integer index in a fixed vocabulary (for example, a vocabulary of 151,936 possible tokens). This step is a pure lookup table operation with no learned computation involved. Step 2 — Integers Become Vectors (Embeddings) In plain terms A single "
+        }
+    },
+    {
+        "chunk_id": "9ecd6898-8e9c-4d06-a536-9ce2068f97a8",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 3,
+        "start_character": 1200,
+        "end_character": 1700,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "learned computation involved. Step 2 — Integers Become Vectors (Embeddings) In plain terms A single number can't describe what a word means — so instead, each token ID is turned into a long list of numbers (a vector). Imagine coordinates on a map, except instead of just latitude and longitude, there are hundreds of coordinates, each capturing a tiny shade of meaning: how \"animal-like\", how \"large\", how \"emotional\" a concept is. No single number matters on its own — together, they define meaning."
+        }
+    },
+    {
+        "chunk_id": "8dbc78e0-6de1-4dd4-a84f-c3a1a3562d87",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 4,
+        "start_character": 1600,
+        "end_character": 2100,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": ", how \"emotional\" a concept is. No single number matters on its own — together, they define meaning. The math Embedding[198] → [-0.32, 0.71, ..., 896 values] Technical detail An embedding matrix of shape (vocabulary_size × hidden_dimension), e.g. 151,936 × 896, stores one learned row per token. Looking up token ID 198 simply retrieves row 198 of that matrix — an operation, not a computation. Step 3 — Hidden States (Transformer Layers) In plain terms The word's meaning-vector doesn't stay fixed. "
+        }
+    },
+    {
+        "chunk_id": "d75261cf-51d2-45e7-8ed5-d2452d6b7975",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 5,
+        "start_character": 2000,
+        "end_character": 2500,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "3 — Hidden States (Transformer Layers) In plain terms The word's meaning-vector doesn't stay fixed. It passes through many processing stages (commonly 24), and at each stage its meaning is updated based on context — the size of the vector never changes, but what it represents keeps getting refined. For example, \"India\" starts out just meaning the country, but after reading \"capital of India\" the vector for India has absorbed the idea that a capital city is relevant nearby. The math h(0) → Layer_"
+        }
+    },
+    {
+        "chunk_id": "51dee5ca-c818-4b4c-a40b-f15e2f6e9501",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 6,
+        "start_character": 2400,
+        "end_character": 2900,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ector for India has absorbed the idea that a capital city is relevant nearby. The math h(0) → Layer_1(h0) → h(1) → ... → Layer_24(h23) → h(24) Technical detail Each transformer layer is a function that maps a vector of dimension d (e.g. 896) to another vector of the same dimension. Stacking 24 such layers progressively enriches the representation while preserving its shape, allowing contextual information to accumulate across the sequence. Step 4 — Attention (Deciding What Matters) In plain term"
+        }
+    },
+    {
+        "chunk_id": "65ebb5fd-73f2-403b-b3f4-22e02ccd0320",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 7,
+        "start_character": 2800,
+        "end_character": 3300,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ormation to accumulate across the sequence. Step 4 — Attention (Deciding What Matters) In plain terms This is the core trick. Each word asks: \"of everything else in this sentence, what should I pay attention to?\" It compares itself to every other word, decides which ones are relevant, and blends in their information. This is how \"capital\" and \"India\" end up linked, even though they're separate words. The math score = Query · Key weights = softmax(score) output = sum(weights × Value) Technical de"
+        }
+    },
+    {
+        "chunk_id": "3606f5ef-370a-4007-b3ff-23f7e25c2777",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 8,
+        "start_character": 3200,
+        "end_character": 3700,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ds. The math score = Query · Key weights = softmax(score) output = sum(weights × Value) Technical detail Each token produces a Query, Key, and Value vector. Attention scores are computed as the dot product of a token's Query with every other token's Key. A softmax converts these scores into weights summing to 1, and the final representation is a weighted average of all Value vectors using those weights. Step 5 — Feed-Forward Network In plain terms After gathering context through attention, each "
+        }
+    },
+    {
+        "chunk_id": "e5079d4e-8b48-4113-8983-4c487bf1f290",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 9,
+        "start_character": 3600,
+        "end_character": 4100,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ights. Step 5 — Feed-Forward Network In plain terms After gathering context through attention, each word passes through a small processing unit that decides what to do with the information it just received — like a second opinion applied independently to each word. The math output = Linear2( Activation( Linear1(x) ) ) Technical detail A position-wise multilayer perceptron: a linear transformation, a non-linear activation function, and another linear transformation. It contains the majority of th"
+        }
+    },
+    {
+        "chunk_id": "133534df-397f-4c60-9e97-066f34891a00",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 10,
+        "start_character": 4000,
+        "end_character": 4500,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": " a non-linear activation function, and another linear transformation. It contains the majority of the model's learned parameters. Step 6 — Final Hidden State In plain terms By the time a word's vector has passed through every layer, it no longer just represents that single word — it carries the accumulated context of the whole sentence: grammar, topic, and the specific question being asked. Technical detail After the final (24th) layer, the hidden state for the last token encodes the aggregated "
+        }
+    },
+    {
+        "chunk_id": "297b51ef-9ac8-410a-bcb7-df38249614c4",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 11,
+        "start_character": 4400,
+        "end_character": 4900,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "cal detail After the final (24th) layer, the hidden state for the last token encodes the aggregated contextual information needed to predict what comes next, still represented as a single 896-dimensional vector. Step 7 — LM Head (Scoring Every Possible Word) In plain terms The model now needs to guess the next word. It takes its final understanding and checks it against every word it knows, giving each one a raw score for how well it fits. The math logits = hidden_vector × W_lm_head (896 → 151,9"
+        }
+    },
+    {
+        "chunk_id": "e30158d7-0877-4a62-b952-dea60c50f77d",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 12,
+        "start_character": 4800,
+        "end_character": 5300,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": " each one a raw score for how well it fits. The math logits = hidden_vector × W_lm_head (896 → 151,936 scores) Technical detail The final hidden vector (dimension 896) is multiplied by the LM head weight matrix to project it into vocabulary space, producing one raw score (logit) per vocabulary entry — e.g. 151,936 logits. Step 8 — Softmax (Turning Scores into Probabilities) In plain terms Those raw scores aren't probabilities yet — they're just arbitrary numbers, some positive, some negative. A "
+        }
+    },
+    {
+        "chunk_id": "3867fc1c-ff5c-473c-bb15-7a1d440bb210",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 13,
+        "start_character": 5200,
+        "end_character": 5700,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "w scores aren't probabilities yet — they're just arbitrary numbers, some positive, some negative. A mathematical step called softmax converts them into proper probabilities that all add up to 100%. The math P(token_i) = e^(logit_i) / sum(e^(logit_j) for all j) Technical detail Softmax exponentiates each logit and normalizes by the sum of all exponentiated logits, guaranteeing a valid probability distribution over the vocabulary. Step 9 — Sampling (Picking the Next Word) In plain terms With a ful"
+        }
+    },
+    {
+        "chunk_id": "132fddf6-656c-4012-976c-b81fd9e47413",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 14,
+        "start_character": 5600,
+        "end_character": 6100,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "istribution over the vocabulary. Step 9 — Sampling (Picking the Next Word) In plain terms With a full list of probabilities, the model must choose one word to output. It can always take the most likely one, or introduce some randomness to make output more varied and natural. Technical detail Common strategies: greedy (highest probability), temperature scaling (reshapes the distribution's sharpness), top-k (restrict to the k most likely tokens), and top-p / nucleus sampling (keep the smallest set"
+        }
+    },
+    {
+        "chunk_id": "0a330674-fdd7-4895-9ddd-68f8a3025c1f",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 15,
+        "start_character": 6000,
+        "end_character": 6500,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "), top-k (restrict to the k most likely tokens), and top-p / nucleus sampling (keep the smallest set of tokens whose cumulative probability exceeds a threshold p). Step 10 — Repeat Until Done In plain terms The newly chosen word gets added to the sentence, and the entire process — tokenize, embed, transform, attend, predict — runs again to choose the next word. This continues until the model produces a special \"end of sentence\" signal. Technical detail This is autoregressive generation: each for"
+        }
+    },
+    {
+        "chunk_id": "2f13284d-d5fc-4252-a1ad-a33a8e343241",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 16,
+        "start_character": 6400,
+        "end_character": 6900,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ces a special \"end of sentence\" signal. Technical detail This is autoregressive generation: each forward pass conditions on all previously generated tokens, and decoding proceeds token-by-token until an end-of-sequence (EOS) token is sampled or a maximum length is reached. Why This Matters for RAG The model above is a fixed, frozen probability engine — it only knows what was baked into it during training. It has no idea about your company's HR policy, a private database, or documents written aft"
+        }
+    },
+    {
+        "chunk_id": "27a60a55-e78d-477a-ba98-0e3480ca5db0",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 17,
+        "start_character": 6800,
+        "end_character": 7300,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "raining. It has no idea about your company's HR policy, a private database, or documents written after its training cutoff. Retraining the model every time new information appears would be far too slow and expensive. Retrieval-Augmented Generation solves this without touching the model at all — it changes only what the model is shown, right before it starts predicting the next token. Document Embeddings — Reusing the Same Math In plain terms Just like individual words get turned into meaning-vec"
+        }
+    },
+    {
+        "chunk_id": "75cc9f25-fc49-437b-bdfe-4c22076334bb",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 18,
+        "start_character": 7200,
+        "end_character": 7700,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ddings — Reusing the Same Math In plain terms Just like individual words get turned into meaning-vectors, entire documents (or chunks of them) get their own meaning-vectors too. A question gets converted the same way. Then the system simply checks which document-vectors sit closest to the question-vector — the closer they are, the more relevant that document probably is. The math similarity(q, d) = (q · d) / (||q|| × ||d||) Technical detail Both documents and the incoming query are passed throug"
+        }
+    },
+    {
+        "chunk_id": "4527c421-3da4-498b-9274-4b33241a0af4",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 19,
+        "start_character": 7600,
+        "end_character": 8100,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "= (q · d) / (||q|| × ||d||) Technical detail Both documents and the incoming query are passed through an embedding model (often a different, smaller model than the generator, producing e.g. 768-dimensional vectors). Cosine similarity between the query vector and each document vector quantifies semantic closeness, independent of vector length. Retrieval and Prompt Construction In plain terms The system pulls out the handful of documents that scored highest on relevance, and simply pastes their co"
+        }
+    },
+    {
+        "chunk_id": "8ac6c536-ecad-4bad-8b16-3260c95dd4b2",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 20,
+        "start_character": 8000,
+        "end_character": 8500,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "stem pulls out the handful of documents that scored highest on relevance, and simply pastes their content into the prompt, right alongside the original question. The language model then answers using both — the question and the freshly supplied facts. Technical detail Top-K nearest document vectors are retrieved from a vector database (e.g. via approximate nearest neighbor search) and concatenated with the user's question into an augmented prompt: [Retrieved Context] + [Question] → SLM → Answer."
+        }
+    },
+    {
+        "chunk_id": "c3e5b83d-acc6-467e-968e-6f78a5dd455e",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 21,
+        "start_character": 8400,
+        "end_character": 8900,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": " with the user's question into an augmented prompt: [Retrieved Context] + [Question] → SLM → Answer. The Core Insight A language model is not a search engine or a database — it is a probability engine that predicts one token at a time. RAG does not teach the model new permanent facts. It feeds the model the right facts immediately before it predicts, every single time it's asked. The model itself never changes; only its input does. The Full Pipeline at a Glance Stage Simple version Technical ver"
+        }
+    },
+    {
+        "chunk_id": "1ce104f7-d083-4e46-8b56-cdc522b0ecb7",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 22,
+        "start_character": 8800,
+        "end_character": 9300,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "never changes; only its input does. The Full Pipeline at a Glance Stage Simple version Technical version 1. Tokenizer Words &#8594; ID numbers Vocabulary lookup, integer indices 2. Embedding IDs &#8594; meaning-vectors Row lookup in (vocab &times; d) matrix 3. Transformer layers Meaning gets refined Stacked functions preserving dim d 4. Attention Decide what to focus on Softmax(Q&middot;K) weighted Value average 5. Feed-forward Process the gathered info Linear &#8594; activation &#8594; linear 6"
+        }
+    },
+    {
+        "chunk_id": "d25d18d1-345f-47b3-bbbd-8ceaaa3599ae",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 23,
+        "start_character": 9200,
+        "end_character": 9700,
+        "metadata": {
+            "chunk_size": 500,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "d Value average 5. Feed-forward Process the gathered info Linear &#8594; activation &#8594; linear 6. LM head Score every possible word hidden &times; W &#8594; logits 7. Softmax Scores &#8594; probabilities e^x normalized to sum to 1 8. Sampling Pick the next word Greedy / temperature / top-k / top-p 9. RAG retrieval Find relevant facts first Cosine similarity over doc embeddings Next phase: instead of studying how the model thinks, the focus shifts to building its memory system — document extr"
+        }
+    },
+    {
+        "chunk_id": "59da5a79-c4b3-45e3-a82d-d7916f3c8f89",
+        "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+        "chunk_index": 24,
+        "start_character": 9600,
+        "end_character": 9837,
+        "metadata": {
+            "chunk_size": 237,
+            "overlap": 100,
+            "strategy": "fixed_character"
+        },
+        "content": {
+            "text": "ead of studying how the model thinks, the focus shifts to building its memory system — document extraction, chunking, embedding, vector storage, and retrieval — the pipeline that will let this model reason over real enterprise knowledge."
+        }
+    }
+]

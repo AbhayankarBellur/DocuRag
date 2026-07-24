@@ -1,0 +1,61 @@
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Document Parsing
+PyMuPDF==1.23.8
+python-docx==1.1.0
+python-pptx==0.6.23
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Embeddings
+sentence-transformers==2.3.1
+torch==2.1.2
+
+# Vector Storage
+chromadb==0.4.22
+qdrant-client==1.7.0
+faiss-cpu==1.7.4
+
+# Database
+sqlalchemy==2.0.25
+alembic==1.13.1
+asyncpg==0.29.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Task Queue
+celery==5.3.6
+redis==5.0.1
+
+# HuggingFace
+huggingface-hub==0.20.3
+requests==2.31.0
+
+# LangChain
+langchain==0.1.0
+langchain-community==0.0.10
+
+# Re-ranking
+rank-bm25==0.2.2
+cohere==4.49
+
+# Evaluation
+ragas==0.1.7
+deepeval==0.20.5
+
+# Utilities
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+aiofiles==23.2.1
+httpx==0.26.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3

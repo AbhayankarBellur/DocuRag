@@ -1,0 +1,26 @@
+{
+    "retrieval_id": "e0348682-db79-4bc2-a545-b6eb73723a1a",
+    "question": "How do transformers convert words into vectors?",
+    "top_k": 3,
+    "retrieved_chunks": [
+        {
+            "score": 0.764568567276001,
+            "chunk_id": "9ecd6898-8e9c-4d06-a536-9ce2068f97a8",
+            "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+            "text": "learned computation involved. Step 2 — Integers Become Vectors (Embeddings) In plain terms A single number can't describe what a word means — so instead, each token ID is turned into a long list of numbers (a vector). Imagine coordinates on a map, except instead of just latitude and longitude, there are hundreds of coordinates, each capturing a tiny shade of meaning: how \"animal-like\", how \"large\", how \"emotional\" a concept is. No single number matters on its own — together, they define meaning."
+        },
+        {
+            "score": 0.7454305291175842,
+            "chunk_id": "75cc9f25-fc49-437b-bdfe-4c22076334bb",
+            "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+            "text": "ddings — Reusing the Same Math In plain terms Just like individual words get turned into meaning-vectors, entire documents (or chunks of them) get their own meaning-vectors too. A question gets converted the same way. Then the system simply checks which document-vectors sit closest to the question-vector — the closer they are, the more relevant that document probably is. The math similarity(q, d) = (q · d) / (||q|| × ||d||) Technical detail Both documents and the incoming query are passed throug"
+        },
+        {
+            "score": 0.7148977518081665,
+            "chunk_id": "1ce104f7-d083-4e46-8b56-cdc522b0ecb7",
+            "document_id": "a60be88b-ec91-429e-8ab4-c1bb43cdf6e6",
+            "text": "never changes; only its input does. The Full Pipeline at a Glance Stage Simple version Technical version 1. Tokenizer Words &#8594; ID numbers Vocabulary lookup, integer indices 2. Embedding IDs &#8594; meaning-vectors Row lookup in (vocab &times; d) matrix 3. Transformer layers Meaning gets refined Stacked functions preserving dim d 4. Attention Decide what to focus on Softmax(Q&middot;K) weighted Value average 5. Feed-forward Process the gathered info Linear &#8594; activation &#8594; linear 6"
+        }
+    ],
+    "context": "learned computation involved. Step 2 — Integers Become Vectors (Embeddings) In plain terms A single number can't describe what a word means — so instead, each token ID is turned into a long list of numbers (a vector). Imagine coordinates on a map, except instead of just latitude and longitude, there are hundreds of coordinates, each capturing a tiny shade of meaning: how \"animal-like\", how \"large\", how \"emotional\" a concept is. No single number matters on its own — together, they define meaning.\n\nddings — Reusing the Same Math In plain terms Just like individual words get turned into meaning-vectors, entire documents (or chunks of them) get their own meaning-vectors too. A question gets converted the same way. Then the system simply checks which document-vectors sit closest to the question-vector — the closer they are, the more relevant that document probably is. The math similarity(q, d) = (q · d) / (||q|| × ||d||) Technical detail Both documents and the incoming query are passed throug\n\nnever changes; only its input does. The Full Pipeline at a Glance Stage Simple version Technical version 1. Tokenizer Words &#8594; ID numbers Vocabulary lookup, integer indices 2. Embedding IDs &#8594; meaning-vectors Row lookup in (vocab &times; d) matrix 3. Transformer layers Meaning gets refined Stacked functions preserving dim d 4. Attention Decide what to focus on Softmax(Q&middot;K) weighted Value average 5. Feed-forward Process the gathered info Linear &#8594; activation &#8594; linear 6"
+}
