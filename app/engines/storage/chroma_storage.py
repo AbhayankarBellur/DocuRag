@@ -1,8 +1,15 @@
 """ChromaDB Vector Storage"""
 from typing import List, Dict, Any, Optional
-import chromadb
-from chromadb.config import Settings
+import math
+import os
 from app.utils.config import settings
+
+try:
+    import chromadb
+    from chromadb.config import Settings
+except Exception:  # pragma: no cover - optional dependency
+    chromadb = None
+    Settings = None
 
 
 class ChromaStorage:
@@ -25,6 +32,16 @@ class ChromaStorage:
     def _initialize(self):
         """Initialize ChromaDB client and collection"""
         try:
+            if chromadb is None:
+                self.client = None
+                self.collection = {
+                    "ids": [],
+                    "documents": [],
+                    "metadatas": [],
+                    "embeddings": [],
+                }
+                return
+
             self.client = chromadb.PersistentClient(
                 path=self.persist_directory,
                 settings=Settings(
@@ -58,6 +75,14 @@ class ChromaStorage:
             ids: List of unique document IDs
         """
         try:
+            if self.client is None:
+                for embedding, text, metadata, doc_id in zip(embeddings, texts, metadatas, ids):
+                    self.collection["ids"].append(doc_id)
+                    self.collection["documents"].append(text)
+                    self.collection["metadatas"].append(metadata)
+                    self.collection["embeddings"].append(list(embedding))
+                return
+
             self.collection.add(
                 embeddings=embeddings,
                 documents=texts,
@@ -87,6 +112,9 @@ class ChromaStorage:
             Dictionary containing query results
         """
         try:
+            if self.client is None:
+                return self._fallback_query(query_embedding, n_results, where)
+
             results = self.collection.query(
                 query_embeddings=[query_embedding],
                 n_results=n_results,
@@ -96,6 +124,36 @@ class ChromaStorage:
             return results
         except Exception as e:
             raise RuntimeError(f"Failed to query ChromaDB: {e}")
+
+    def _fallback_query(self, query_embedding: List[float], n_results: int, where: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Pure Python cosine-similarity search when ChromaDB is unavailable."""
+        candidates = []
+
+        for index, doc_id in enumerate(self.collection["ids"]):
+            metadata = self.collection["metadatas"][index]
+            if where:
+                if any(metadata.get(key) != value for key, value in where.items()):
+                    continue
+
+            embedding = self.collection["embeddings"][index]
+            score = self._cosine_similarity(query_embedding, embedding)
+            candidates.append((score, index))
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        top_candidates = candidates[:n_results]
+
+        return {
+            "ids": [[self.collection["ids"][index] for _, index in top_candidates]],
+            "documents": [[self.collection["documents"][index] for _, index in top_candidates]],
+            "metadatas": [[self.collection["metadatas"][index] for _, index in top_candidates]],
+            "distances": [[1.0 - score for score, _ in top_candidates]],
+        }
+
+    def _cosine_similarity(self, left: List[float], right: List[float]) -> float:
+        denominator = math.sqrt(sum(value * value for value in left)) * math.sqrt(sum(value * value for value in right))
+        if denominator == 0:
+            return 0.0
+        return sum(a * b for a, b in zip(left, right)) / denominator
     
     def delete(self, ids: List[str]) -> None:
         """
@@ -105,6 +163,17 @@ class ChromaStorage:
             ids: List of document IDs to delete
         """
         try:
+            if self.client is None:
+                retained = [
+                    i for i, doc_id in enumerate(self.collection["ids"])
+                    if doc_id not in ids
+                ]
+                self.collection["ids"] = [self.collection["ids"][i] for i in retained]
+                self.collection["documents"] = [self.collection["documents"][i] for i in retained]
+                self.collection["metadatas"] = [self.collection["metadatas"][i] for i in retained]
+                self.collection["embeddings"] = [self.collection["embeddings"][i] for i in retained]
+                return
+
             self.collection.delete(ids=ids)
         except Exception as e:
             raise RuntimeError(f"Failed to delete documents from ChromaDB: {e}")
@@ -121,6 +190,14 @@ class ChromaStorage:
             Dictionary containing documents
         """
         try:
+            if self.client is None:
+                return {
+                    "ids": [self.collection["ids"]],
+                    "documents": [self.collection["documents"]],
+                    "metadatas": [self.collection["metadatas"]],
+                    "embeddings": [self.collection["embeddings"]],
+                }
+
             results = self.collection.get(ids=ids, where=where)
             return results
         except Exception as e:
@@ -129,6 +206,8 @@ class ChromaStorage:
     def count(self) -> int:
         """Get the number of documents in the collection"""
         try:
+            if self.client is None:
+                return len(self.collection["ids"])
             return self.collection.count()
         except Exception as e:
             raise RuntimeError(f"Failed to count documents in ChromaDB: {e}")
@@ -136,6 +215,15 @@ class ChromaStorage:
     def clear(self) -> None:
         """Clear all documents from the collection"""
         try:
+            if self.client is None:
+                self.collection = {
+                    "ids": [],
+                    "documents": [],
+                    "metadatas": [],
+                    "embeddings": [],
+                }
+                return
+
             self.client.delete_collection(name=self.collection_name)
             self.collection = self.client.create_collection(
                 name=self.collection_name,

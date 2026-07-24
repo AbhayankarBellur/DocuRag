@@ -5,6 +5,7 @@ from sqlalchemy.sql import func
 import uuid
 import enum
 from app.utils.config import settings
+from app.models.base import Base
 
 
 class UserRole(str, enum.Enum):
@@ -14,7 +15,7 @@ class UserRole(str, enum.Enum):
     VIEWER = "viewer"
 
 
-class User:
+class User(Base):
     """User Model (for SQLAlchemy)"""
     
     __tablename__ = "users"

@@ -2,8 +2,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from app.models.user import UserResponse
 from app.services.batch_service import BatchService
-from app.main import get_db, get_current_user
+from app.dependencies import get_db, get_current_user
 
 router = APIRouter()
 

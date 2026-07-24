@@ -93,7 +93,8 @@ class QueryService:
                 query=query_data.question,
                 context=context,
                 max_tokens=512,
-                temperature=0.7
+                temperature=0.7,
+                template=prompt
             )
             generation_time = int((time.time() - generation_start) * 1000)
             

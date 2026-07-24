@@ -5,6 +5,7 @@ from sqlalchemy.sql import func
 import uuid
 import enum
 from app.utils.config import settings
+from app.models.base import Base
 
 
 class QueryIntent(str, enum.Enum):
@@ -22,7 +23,7 @@ class QueryStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class Query:
+class Query(Base):
     """Query Model (for SQLAlchemy)"""
     
     __tablename__ = "queries"

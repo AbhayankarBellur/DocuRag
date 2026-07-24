@@ -26,11 +26,10 @@ class HFInference:
         self.model = model or settings.hf_model
         self.api_url = api_url or settings.hf_api_url
         
-        if not self.api_key:
-            raise ValueError("HuggingFace API key is required")
+        self.offline_mode = not bool(self.api_key)
         
         self.endpoint = f"{self.api_url}/{self.model}"
-        self.headers = {"Authorization": f"Bearer {self.api_key}"}
+        self.headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         
         # Rate limiting
         self.last_request_time = 0
@@ -63,6 +62,14 @@ class HFInference:
         """
         # Rate limiting
         self._rate_limit()
+
+        if self.offline_mode:
+            return {
+                "generated_text": self._offline_generate(prompt),
+                "model": self.model,
+                "tokens_used": len(prompt.split()),
+                "request_id": self.request_count + 1,
+            }
         
         payload = {
             "inputs": prompt,
@@ -109,6 +116,19 @@ class HFInference:
             
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"HuggingFace inference failed: {e}")
+
+    def _offline_generate(self, prompt: str) -> str:
+        """Simple local fallback when no Hugging Face API key is configured."""
+        lower_prompt = prompt.lower()
+        if "question:" in lower_prompt and "context:" in lower_prompt:
+            context_start = lower_prompt.find("context:")
+            question_start = lower_prompt.find("question:")
+            context = prompt[context_start + len("context:"):question_start].strip()
+            if context:
+                sentences = [sentence.strip() for sentence in context.replace("\n", " ").split(".") if sentence.strip()]
+                summary = ". ".join(sentences[:2])
+                return summary if summary else context[:500]
+        return prompt[:500]
     
     def generate_with_context(
         self,

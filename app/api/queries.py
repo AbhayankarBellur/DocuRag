@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from app.models.query import QueryCreate, QueryResponse, BatchQueryCreate, BatchQueryResponse
 from app.services.query_service import QueryService
-from app.main import get_db, get_current_user
+from app.dependencies import get_db, get_current_user
 
 router = APIRouter()
 

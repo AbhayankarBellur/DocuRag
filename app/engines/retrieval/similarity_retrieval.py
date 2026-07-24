@@ -1,6 +1,5 @@
 """Similarity-based Retrieval Strategy"""
 from typing import List, Dict, Any, Optional
-import numpy as np
 
 
 class SimilarityRetrieval:
@@ -41,12 +40,23 @@ class SimilarityRetrieval:
             
             # Format results
             formatted_results = []
-            for i in range(len(results.get("ids", []))):
+            ids = results.get("ids", [[]])
+            documents = results.get("documents", [[]])
+            metadatas = results.get("metadatas", [[]])
+            distances = results.get("distances", [[]])
+
+            if ids and isinstance(ids[0], list):
+                ids = ids[0]
+                documents = documents[0]
+                metadatas = metadatas[0]
+                distances = distances[0]
+
+            for i in range(len(ids)):
                 formatted_results.append({
-                    "id": results["ids"][i],
-                    "text": results["documents"][i],
-                    "metadata": results["metadatas"][i],
-                    "score": results["distances"][i] if "distances" in results else None,
+                    "id": ids[i],
+                    "text": documents[i],
+                    "metadata": metadatas[i],
+                    "score": distances[i] if distances else None,
                     "retrieval_strategy": "similarity"
                 })
             

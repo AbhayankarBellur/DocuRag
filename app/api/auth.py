@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import UserCreate, UserLogin, UserResponse, Token
 from app.services.auth_service import AuthService
-from app.main import get_db
+from app.dependencies import get_db
 
 security = HTTPBearer()
 

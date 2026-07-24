@@ -5,6 +5,7 @@ from sqlalchemy.sql import func
 import uuid
 import enum
 from app.utils.config import settings
+from app.models.base import Base
 
 
 class DocumentStatus(str, enum.Enum):
@@ -25,7 +26,7 @@ class DocumentType(str, enum.Enum):
     HTML = "html"
 
 
-class Document:
+class Document(Base):
     """Document Model (for SQLAlchemy)"""
     
     __tablename__ = "documents"
@@ -51,7 +52,7 @@ class Document:
     vector_store = Column(String, nullable=True)
     
     # Document analysis
-    metadata = Column(JSON, nullable=True)
+    document_metadata = Column("metadata", JSON, nullable=True)
     domain = Column(String, nullable=True)
     complexity_score = Column(Integer, nullable=True)
     language = Column(String, nullable=True)
@@ -92,7 +93,7 @@ class DocumentResponse(DocumentBase):
     chunking_strategy: Optional[str]
     embedding_model: Optional[str]
     vector_store: Optional[str]
-    metadata: Optional[Dict[str, Any]]
+    metadata: Optional[Dict[str, Any]] = Field(default=None, alias="document_metadata")
     domain: Optional[str]
     complexity_score: Optional[int]
     language: Optional[str]

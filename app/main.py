@@ -1,58 +1,10 @@
 """FastAPI Main Application"""
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from contextlib import asynccontextmanager
 from app.utils.config import settings
+from app.dependencies import get_db, get_current_user, engine
 from app.api import auth, documents, queries, batch, admin
-
-# Database setup
-engine = create_async_engine(settings.database_url, echo=settings.debug)
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-
-
-# Dependency to get database session
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
-
-
-# Security
-security = HTTPBearer()
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get current user from JWT token"""
-    from app.services.auth_service import AuthService
-    from app.utils.security import decode_token
-    from app.models.user import UserResponse
-    
-    try:
-        payload = decode_token(credentials.credentials)
-        user_id = payload.get("user_id")
-        
-        auth_service = AuthService(db)
-        user = await auth_service.get_user_by_id(user_id)
-        
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found"
-            )
-        
-        return user
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
 
 
 # Lifespan manager
@@ -60,6 +12,14 @@ async def get_current_user(
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
+    from app.models.base import Base
+    import app.models.user
+    import app.models.document
+    import app.models.query
+
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
     print(f"Starting {settings.app_name} v{settings.app_version}")
     yield
     # Shutdown

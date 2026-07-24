@@ -1,8 +1,13 @@
 """BGE Embedding Model"""
 from typing import List, Union
-import numpy as np
-from sentence_transformers import SentenceTransformer
+import hashlib
+import math
 from app.utils.config import settings
+
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception:  # pragma: no cover - optional dependency
+    SentenceTransformer = None
 
 
 class BGEEmbedding:
@@ -24,12 +29,29 @@ class BGEEmbedding:
     def _load_model(self):
         """Load the BGE model"""
         try:
+            if SentenceTransformer is None:
+                self.model = None
+                return
             self.model = SentenceTransformer(
                 self.model_name,
                 device=self.device
             )
         except Exception as e:
             raise RuntimeError(f"Failed to load BGE model: {e}")
+
+    def _fallback_embedding(self, text: str, dimension: int = 384) -> List[float]:
+        """Generate a deterministic lightweight embedding without external ML deps."""
+        vector = [0.0] * dimension
+        tokens = text.lower().split()
+
+        for token in tokens:
+            digest = hashlib.sha256(token.encode("utf-8")).digest()
+            index = int.from_bytes(digest[:4], "big") % dimension
+            weight = 1.0 + (digest[4] / 255.0)
+            vector[index] += weight
+
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [value / norm for value in vector]
     
     def embed_text(self, text: Union[str, List[str]]) -> Union[List[float], List[List[float]]]:
         """
@@ -49,6 +71,12 @@ class BGEEmbedding:
             text = [text]
         
         try:
+            if self.model is None:
+                embeddings = [self._fallback_embedding(item) for item in text]
+                if is_single:
+                    return embeddings[0]
+                return embeddings
+
             embeddings = self.model.encode(
                 text,
                 convert_to_numpy=True,
@@ -77,6 +105,9 @@ class BGEEmbedding:
             self._load_model()
         
         try:
+            if self.model is None:
+                return [self._fallback_embedding(item) for item in texts]
+
             embeddings = self.model.encode(
                 texts,
                 batch_size=batch_size,
@@ -92,6 +123,8 @@ class BGEEmbedding:
         """Get the dimension of the embedding vectors"""
         if self.model is None:
             self._load_model()
+        if self.model is None:
+            return 384
         return self.model.get_sentence_embedding_dimension()
     
     def get_model_info(self) -> dict:

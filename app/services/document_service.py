@@ -85,7 +85,7 @@ class DocumentService:
             file_size=ingestion_result["file_size"],
             document_type=ingestion_result["document_type"],
             status=DocumentStatus.PROCESSING,
-            metadata=ingestion_result["metadata"],
+            document_metadata=ingestion_result["metadata"],
             domain=ingestion_result["domain"],
             complexity_score=ingestion_result["complexity_score"],
             language=ingestion_result["language"]
@@ -214,6 +214,8 @@ class DocumentService:
             return None
         
         for key, value in update_data.items():
+            if key == "metadata":
+                key = "document_metadata"
             if hasattr(document, key):
                 setattr(document, key, value)
         
