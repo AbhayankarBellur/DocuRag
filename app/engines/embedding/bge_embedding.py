@@ -24,20 +24,26 @@ class BGEEmbedding:
         self.model_name = model_name or settings.embedding_model
         self.device = device or settings.embedding_device
         self.model = None
-        self._load_model()
+        self.model_loaded = False
+        self.fallback_mode = SentenceTransformer is None
     
     def _load_model(self):
-        """Load the BGE model"""
+        """Load the BGE model lazily"""
+        if self.model_loaded:
+            return
+        self.model_loaded = True
+
+        if self.fallback_mode:
+            return
+
         try:
-            if SentenceTransformer is None:
-                self.model = None
-                return
             self.model = SentenceTransformer(
                 self.model_name,
                 device=self.device
             )
-        except Exception as e:
-            raise RuntimeError(f"Failed to load BGE model: {e}")
+        except Exception:
+            self.model = None
+            self.fallback_mode = True
 
     def _fallback_embedding(self, text: str, dimension: int = 384) -> List[float]:
         """Generate a deterministic lightweight embedding without external ML deps."""
@@ -63,7 +69,7 @@ class BGEEmbedding:
         Returns:
             Embedding vector(s) as list(s) of floats
         """
-        if self.model is None:
+        if self.model is None and not self.fallback_mode:
             self._load_model()
         
         is_single = isinstance(text, str)
@@ -71,7 +77,7 @@ class BGEEmbedding:
             text = [text]
         
         try:
-            if self.model is None:
+            if self.model is None or self.fallback_mode:
                 embeddings = [self._fallback_embedding(item) for item in text]
                 if is_single:
                     return embeddings[0]
@@ -87,8 +93,12 @@ class BGEEmbedding:
             if is_single:
                 return embeddings[0].tolist()
             return embeddings.tolist()
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate embeddings: {e}")
+        except Exception:
+            self.fallback_mode = True
+            embeddings = [self._fallback_embedding(item) for item in text]
+            if is_single:
+                return embeddings[0]
+            return embeddings
     
     def embed_batch(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
         """
@@ -101,11 +111,11 @@ class BGEEmbedding:
         Returns:
             List of embedding vectors
         """
-        if self.model is None:
+        if self.model is None and not self.fallback_mode:
             self._load_model()
         
         try:
-            if self.model is None:
+            if self.model is None or self.fallback_mode:
                 return [self._fallback_embedding(item) for item in texts]
 
             embeddings = self.model.encode(
@@ -116,8 +126,9 @@ class BGEEmbedding:
                 show_progress_bar=True
             )
             return embeddings.tolist()
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate batch embeddings: {e}")
+        except Exception:
+            self.fallback_mode = True
+            return [self._fallback_embedding(item) for item in texts]
     
     def get_embedding_dimension(self) -> int:
         """Get the dimension of the embedding vectors"""

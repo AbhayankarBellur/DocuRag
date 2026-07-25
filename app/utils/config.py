@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     
     # HuggingFace
-    huggingface_api_key: Optional[str] = None
+    huggingface_api_key: Optional[str] = "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"
     hf_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
     hf_api_url: str = "https://api-inference.huggingface.co/models"
     

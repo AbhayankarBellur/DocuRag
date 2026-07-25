@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.utils.config import settings
 from app.dependencies import get_db, get_current_user, engine
-from app.api import auth, documents, queries, batch, admin
+from app.api import auth, documents, queries, batch, admin, folders
 
 
 # Lifespan manager
@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI):
     import app.models.user
     import app.models.document
     import app.models.query
+    import app.models.document  # Import again to ensure Folder model is registered
 
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -49,6 +50,7 @@ app.include_router(documents.router, prefix="/api/documents", tags=["Documents"]
 app.include_router(queries.router, prefix="/api/queries", tags=["Queries"])
 app.include_router(batch.router, prefix="/api/batch", tags=["Batch Processing"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(folders.router, prefix="/api/folders", tags=["Folders"])
 
 
 # Health check endpoint

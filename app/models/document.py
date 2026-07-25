@@ -34,9 +34,11 @@ class Document(Base):
     if "postgresql" in settings.database_url:
         id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
         user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+        folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=True)
     else:
         id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
         user_id = Column(String, ForeignKey("users.id"), nullable=False)
+        folder_id = Column(String, ForeignKey("folders.id"), nullable=True)
     
     title = Column(String, nullable=False)
     filename = Column(String, nullable=False)
@@ -66,6 +68,32 @@ class Document(Base):
         return f"<Document {self.title}>"
 
 
+class Folder(Base):
+    """Folder Model for document organization"""
+    
+    __tablename__ = "folders"
+    
+    if "postgresql" in settings.database_url:
+        id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+        parent_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=True)
+    else:
+        id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+        user_id = Column(String, ForeignKey("users.id"), nullable=False)
+        parent_id = Column(String, ForeignKey("folders.id"), nullable=True)
+    
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    color = Column(String, nullable=True)  # For UI display
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    def __repr__(self):
+        return f"<Folder {self.name}>"
+
+
 # Pydantic models for API
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -90,16 +118,16 @@ class DocumentResponse(DocumentBase):
     user_id: str
     status: DocumentStatus
     chunk_count: int
-    chunking_strategy: Optional[str]
-    embedding_model: Optional[str]
-    vector_store: Optional[str]
+    chunking_strategy: Optional[str] = None
+    embedding_model: Optional[str] = None
+    vector_store: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = Field(default=None, alias="document_metadata")
-    domain: Optional[str]
-    complexity_score: Optional[int]
-    language: Optional[str]
+    domain: Optional[str] = None
+    complexity_score: Optional[int] = None
+    language: Optional[str] = None
     created_at: datetime
-    updated_at: Optional[datetime]
-    processed_at: Optional[datetime]
+    updated_at: Optional[datetime] = None
+    processed_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -109,3 +137,35 @@ class DocumentUpdate(BaseModel):
     """Document Update Model"""
     title: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    folder_id: Optional[str] = None
+
+
+class FolderBase(BaseModel):
+    """Base Folder Model"""
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    parent_id: Optional[str] = None
+
+
+class FolderCreate(FolderBase):
+    """Folder Creation Model"""
+
+
+class FolderResponse(FolderBase):
+    """Folder Response Model"""
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class FolderUpdate(BaseModel):
+    """Folder Update Model"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    parent_id: Optional[str] = None

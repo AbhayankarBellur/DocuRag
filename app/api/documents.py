@@ -13,6 +13,10 @@ router = APIRouter()
 async def upload_document(
     file: UploadFile = File(...),
     title: str = None,
+    folder_id: str = None,
+    chunking_strategy: str = "fixed",
+    embedding_model: str = "BAAI/bge-small-en-v1.5",
+    vector_store: str = "chroma",
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -22,7 +26,11 @@ async def upload_document(
         document = await doc_service.upload_document(
             file=file,
             user_id=current_user.id,
-            title=title
+            title=title,
+            folder_id=folder_id,
+            chunking_strategy=chunking_strategy,
+            embedding_model=embedding_model,
+            vector_store=vector_store
         )
         return document
     except ValueError as e:

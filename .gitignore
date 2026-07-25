@@ -16,3 +16,12 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+*.db
+*.sqlite
+*.sqlite3
+Data/uploads/*
+!Data/uploads/.gitkeep
+Data/chroma/*
+!Data/chroma/.gitkeep
+logs/
+*.log

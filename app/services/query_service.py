@@ -10,7 +10,7 @@ from app.engines.embedding.bge_embedding import BGEEmbedding
 from app.engines.storage.chroma_storage import ChromaStorage
 from app.engines.retrieval.similarity_retrieval import SimilarityRetrieval
 from app.engines.generation.hf_inference import HFInference
-from app.engines.prompting.template_manager import TemplateManager, PromptType
+from app.engines.prompting.template_manager import TemplateManager, PromptType, ReasoningLevel, MODEL_CONFIGS
 from app.utils.config import settings
 
 
@@ -69,12 +69,19 @@ class QueryService:
             filters = {"user_id": user_id}
             if query_data.document_id:
                 filters["document_id"] = query_data.document_id
+            if getattr(query_data, 'folder_id', None):
+                filters["folder_id"] = query_data.folder_id
+            
+            # Get number of results from query data or default to 5
+            n_results = getattr(query_data, 'n_results', None) or 5
+            print(f"DEBUG: Retrieving {n_results} results with filters: {filters}", flush=True)
             
             results = self.retrieval.retrieve(
                 query_embedding=query_embedding,
-                n_results=5,
+                n_results=n_results,
                 filters=filters
             )
+            print(f"DEBUG: Retrieved {len(results)} results", flush=True)
             retrieval_time = int((time.time() - retrieval_start) * 1000)
             
             # Prepare context
@@ -82,20 +89,50 @@ class QueryService:
             
             # Generate answer
             generation_start = time.time()
-            prompt_type = PromptType.FACTUAL_QA
+            
+            # Get reasoning level from query data or default to intermediate
+            reasoning_level_str = getattr(query_data, 'reasoning_level', None) or 'intermediate'
+            print(f"DEBUG: Reasoning level: {reasoning_level_str}", flush=True)
+            try:
+                reasoning_level = ReasoningLevel(reasoning_level_str)
+            except ValueError:
+                reasoning_level = ReasoningLevel.INTERMEDIATE
+            
+            # Get reasoning configuration
+            reasoning_config = self.template_manager.get_reasoning_config(reasoning_level)
+            print(f"DEBUG: Reasoning config - temperature: {reasoning_config['temperature']}, max_tokens: {reasoning_config['max_tokens']}", flush=True)
+            
+            # Get model-specific configuration for optimization
+            model_config = MODEL_CONFIGS.get(settings.hf_model, MODEL_CONFIGS["Qwen/Qwen2.5-0.5B-Instruct"])
+            
+            # Use the smaller of reasoning config or model config for max_tokens
+            max_tokens = min(reasoning_config['max_tokens'], model_config['max_tokens'])
+            print(f"DEBUG: Using max_tokens: {max_tokens}", flush=True)
+            
+            # Get prompt type from query data or default to factual_qa
+            prompt_type_str = getattr(query_data, 'prompt_template', None) or 'factual_qa'
+            print(f"DEBUG: Prompt template: {prompt_type_str}", flush=True)
+            try:
+                prompt_type = PromptType(prompt_type_str)
+            except ValueError:
+                prompt_type = PromptType.FACTUAL_QA
+            
             prompt = self.template_manager.get_template(
                 prompt_type=prompt_type,
                 query=query_data.question,
                 context=context
             )
+            print(f"DEBUG: Generated prompt length: {len(prompt)}", flush=True)
             
             generation_result = self.generator.generate_with_context(
                 query=query_data.question,
                 context=context,
-                max_tokens=512,
-                temperature=0.7,
-                template=prompt
+                max_tokens=max_tokens,
+                temperature=reasoning_config['temperature'],
+                template=prompt,
+                timeout=model_config['timeout']
             )
+            print(f"DEBUG: Generation result length: {len(generation_result.get('generated_text', ''))}", flush=True)
             generation_time = int((time.time() - generation_start) * 1000)
             
             # Update query record

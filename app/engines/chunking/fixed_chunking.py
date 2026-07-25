@@ -66,11 +66,17 @@ class FixedChunking:
                 chunk_id += 1
             
             # Move start position with overlap
-            start = end - self.chunk_overlap
+            if end == len(text):
+                break
             
-            # Prevent infinite loop if overlap >= chunk_size
             if self.chunk_overlap >= self.chunk_size:
                 start = end
+            else:
+                next_start = end - self.chunk_overlap
+                if next_start <= start:
+                    start = end
+                else:
+                    start = next_start
         
         return chunks
     

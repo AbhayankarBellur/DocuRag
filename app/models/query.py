@@ -91,6 +91,9 @@ class QueryCreate(QueryBase):
     retrieval_strategy: Optional[str] = None
     reranking_strategy: Optional[str] = None
     prompt_template: Optional[str] = None
+    reasoning_level: Optional[str] = None  # basic, intermediate, advanced, expert
+    n_results: Optional[int] = 5  # Number of documents to retrieve
+    folder_id: Optional[str] = None  # Target specific folder for retrieval
 
 
 class QueryResponse(QueryBase):
