@@ -4,137 +4,222 @@ import re
 
 
 class DocumentAnalyzer:
-    """Analyzes documents to determine optimal processing strategies"""
-    
-    def __init__(self):
-        """Initialize document analyzer"""
-        self.domain_keywords = {
-            "legal": ["contract", "law", "legal", "statute", "regulation", "court", "judgment"],
-            "technical": ["api", "function", "code", "programming", "algorithm", "database", "server"],
-            "medical": ["patient", "diagnosis", "treatment", "symptom", "disease", "medical"],
-            "financial": ["stock", "investment", "portfolio", "market", "trading", "financial"],
-            "academic": ["research", "study", "paper", "journal", "citation", "abstract"],
-        }
-    
+    """Analyzes documents to determine optimal processing strategies."""
+
+    domain_keywords: Dict[str, list] = {
+        "legal": [
+            "contract", "law", "legal", "statute", "regulation", "court",
+            "judgment", "clause", "liability", "indemnity", "jurisdiction",
+        ],
+        "technical": [
+            "api", "function", "code", "programming", "algorithm", "database",
+            "server", "endpoint", "class", "module", "framework", "sdk",
+            "repository", "deployment", "pipeline", "runtime",
+        ],
+        "medical": [
+            "patient", "diagnosis", "treatment", "symptom", "disease",
+            "medical", "clinical", "therapy", "dosage", "pathology",
+            "prognosis", "surgery", "prescription",
+        ],
+        "financial": [
+            "stock", "investment", "portfolio", "market", "trading",
+            "financial", "revenue", "equity", "dividend", "hedge",
+            "bond", "fiscal", "balance sheet", "cash flow",
+        ],
+        "academic": [
+            "research", "study", "paper", "journal", "citation",
+            "abstract", "hypothesis", "methodology", "literature review",
+            "experiment", "peer-reviewed", "findings",
+        ],
+    }
+
     def analyze(self, content: str, metadata: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Analyze document content and metadata
-        
-        Args:
-            content: Document text content
-            metadata: Document metadata from ingestion
-        
-        Returns:
-            Analysis results including recommended strategies
+        Analyze document content and metadata.
+
+        Returns a dict with all signals plus recommended strategies.
         """
-        analysis = {
-            "domain": self._classify_domain(content),
-            "complexity": self._assess_complexity(content),
-            "structure": self._analyze_structure(content),
-            "language": self._detect_language(content),
+        structure = self._analyze_structure(content)
+        complexity = self._assess_complexity(content)
+        domain = self._classify_domain(content)
+        language = self._detect_language(content)
+
+        # Extra signals
+        word_count = len(content.split())
+        avg_sentence_length = self._avg_sentence_length(content)
+        content_type = self._infer_content_type(structure, content)
+
+        analysis: Dict[str, Any] = {
+            "domain": domain,
+            "complexity": complexity,
+            "structure": structure,
+            "language": language,
+            "word_count": word_count,
+            "avg_sentence_length": avg_sentence_length,
+            "content_type": content_type,   # prose | structured | code | mixed
             "recommended_chunking": None,
             "recommended_embedding": None,
             "recommended_retrieval": None,
+            "rationale": {},
         }
-        
-        # Determine recommended strategies
+
         analysis["recommended_chunking"] = self._recommend_chunking(analysis)
         analysis["recommended_embedding"] = self._recommend_embedding(analysis)
         analysis["recommended_retrieval"] = self._recommend_retrieval(analysis)
-        
+
         return analysis
-    
+
+    # ------------------------------------------------------------------
+    # Classification helpers
+    # ------------------------------------------------------------------
+
     def _classify_domain(self, content: str) -> str:
-        """Classify document domain"""
         content_lower = content.lower()
-        domain_scores = {}
-        
-        for domain, keywords in self.domain_keywords.items():
-            score = sum(1 for kw in keywords if kw in content_lower)
-            domain_scores[domain] = score
-        
-        if domain_scores:
-            return max(domain_scores, key=domain_scores.get)
-        return "general"
-    
+        scores = {
+            domain: sum(1 for kw in kws if kw in content_lower)
+            for domain, kws in self.domain_keywords.items()
+        }
+        best = max(scores, key=scores.get)
+        return best if scores[best] > 0 else "general"
+
     def _assess_complexity(self, content: str) -> int:
-        """Assess document complexity (1-5)"""
         words = content.split()
         if not words:
             return 1
-        
-        # Average word length
+
         avg_word_len = sum(len(w) for w in words) / len(words)
-        
-        # Sentence count
-        sentences = len(re.split(r'[.!?]+', content))
-        avg_sentence_len = len(words) / max(sentences, 1)
-        
-        # Technical terms
-        technical_indicators = ["algorithm", "implementation", "architecture", "framework"]
+        avg_sent_len = self._avg_sentence_length(content)
+
+        technical_indicators = [
+            "algorithm", "implementation", "architecture",
+            "framework", "methodology", "theorem", "hypothesis",
+        ]
         tech_score = sum(1 for ind in technical_indicators if ind in content.lower())
-        
+
         complexity = 1
-        if avg_word_len > 5:
+        if avg_word_len > 5.5:
             complexity += 1
-        if avg_sentence_len > 20:
+        if avg_sent_len > 22:
             complexity += 1
-        if tech_score > 0:
+        if tech_score >= 2:
             complexity += 1
-        
+        if len(words) > 3000:
+            complexity += 1
+
         return min(complexity, 5)
-    
+
     def _analyze_structure(self, content: str) -> Dict[str, Any]:
-        """Analyze document structure"""
+        has_headers = bool(re.search(r"^#{1,6}\s", content, re.MULTILINE))
+        has_lists = bool(re.search(r"^\s*[-*+\d]\.", content, re.MULTILINE))
+        has_code = bool(re.search(r"```|def |class |function |import ", content))
+        has_tables = "|" in content and content.count("|") > 4
+        paragraph_count = len([p for p in re.split(r"\n\n+", content) if p.strip()])
+        has_numbered_sections = bool(
+            re.search(r"^\s*\d+[\.\)]\s+\w", content, re.MULTILINE)
+        )
         return {
-            "has_headers": bool(re.search(r'^#{1,6}\s', content, re.MULTILINE)),
-            "has_lists": bool(re.search(r'^\s*[-*+]\s', content, re.MULTILINE)),
-            "has_code": bool(re.search(r'```|def |class |function ', content)),
-            "has_tables": "|" in content or "table" in content.lower(),
-            "paragraph_count": len(re.split(r'\n\n+', content)),
+            "has_headers": has_headers,
+            "has_lists": has_lists,
+            "has_code": has_code,
+            "has_tables": has_tables,
+            "paragraph_count": paragraph_count,
+            "has_numbered_sections": has_numbered_sections,
         }
-    
+
+    def _infer_content_type(self, structure: Dict[str, Any], content: str) -> str:
+        if structure["has_code"] and content.count("```") > 2:
+            return "code"
+        if structure["has_headers"] or structure["has_numbered_sections"]:
+            return "structured"
+        # Mostly short paragraphs ≈ prose
+        return "prose"
+
+    def _avg_sentence_length(self, content: str) -> float:
+        words = content.split()
+        sentences = max(len(re.split(r"[.!?]+", content)), 1)
+        return len(words) / sentences
+
     def _detect_language(self, content: str) -> str:
-        """Simple language detection"""
-        # This is a simplified version - in production, use langdetect
-        if not content:
-            return "en"
-        
-        # Check for common non-English patterns
-        if re.search(r'[\u4e00-\u9fff]', content):  # Chinese
+        if re.search(r"[\u4e00-\u9fff]", content):
             return "zh"
-        elif re.search(r'[\u0600-\u06ff]', content):  # Arabic
+        if re.search(r"[\u0600-\u06ff]", content):
             return "ar"
-        elif re.search(r'[\u0400-\u04ff]', content):  # Russian
+        if re.search(r"[\u0400-\u04ff]", content):
             return "ru"
-        
         return "en"
-    
+
+    # ------------------------------------------------------------------
+    # Recommendation helpers  (also fill rationale)
+    # ------------------------------------------------------------------
+
     def _recommend_chunking(self, analysis: Dict[str, Any]) -> str:
-        """Recommend chunking strategy based on analysis"""
-        if analysis["structure"]["has_headers"]:
+        s = analysis["structure"]
+        rationale = analysis["rationale"]
+
+        if s["has_headers"] or s["has_numbered_sections"]:
+            rationale["chunking"] = (
+                "Document has clear section headers — section chunking preserves "
+                "logical boundaries."
+            )
             return "section"
-        elif analysis["complexity"] >= 4:
-            return "semantic"
-        elif analysis["domain"] in ["legal", "technical"]:
+
+        if analysis["content_type"] == "code":
+            rationale["chunking"] = (
+                "Document is code-heavy — recursive chunking respects code block "
+                "boundaries."
+            )
             return "recursive"
-        else:
-            return "fixed"
-    
-    def _recommend_embedding(self, analysis: Dict[str, Any]) -> str:
-        """Recommend embedding model based on analysis"""
-        if analysis["complexity"] >= 4:
-            return "BAAI/bge-large-en-v1.5"
-        elif analysis["complexity"] >= 3:
-            return "BAAI/bge-base-en-v1.5"
-        else:
-            return "BAAI/bge-small-en-v1.5"
-    
-    def _recommend_retrieval(self, analysis: Dict[str, Any]) -> str:
-        """Recommend retrieval strategy based on analysis"""
+
+        if analysis["complexity"] >= 4 or analysis["domain"] in ("academic", "legal"):
+            rationale["chunking"] = (
+                f"High complexity ({analysis['complexity']}/5) or domain "
+                f"'{analysis['domain']}' — semantic chunking groups by meaning."
+            )
+            return "semantic"
+
         if analysis["domain"] == "technical":
+            rationale["chunking"] = (
+                "Technical domain — recursive chunking handles nested structures well."
+            )
+            return "recursive"
+
+        rationale["chunking"] = "General document — fixed-size chunking is fast and reliable."
+        return "fixed"
+
+    def _recommend_embedding(self, analysis: Dict[str, Any]) -> str:
+        rationale = analysis["rationale"]
+        complexity = analysis["complexity"]
+
+        if complexity >= 4:
+            rationale["embedding"] = (
+                f"Complexity {complexity}/5 → large BGE model for richer representations."
+            )
+            return "BAAI/bge-large-en-v1.5"
+
+        if complexity >= 3 or analysis["domain"] in ("academic", "legal", "medical"):
+            rationale["embedding"] = (
+                f"Complexity {complexity}/5 or specialised domain "
+                f"'{analysis['domain']}' → base BGE model."
+            )
+            return "BAAI/bge-base-en-v1.5"
+
+        rationale["embedding"] = "Low complexity — small BGE model is fast and sufficient."
+        return "BAAI/bge-small-en-v1.5"
+
+    def _recommend_retrieval(self, analysis: Dict[str, Any]) -> str:
+        rationale = analysis["rationale"]
+
+        if analysis["domain"] == "technical" or analysis["structure"]["has_code"]:
+            rationale["retrieval"] = (
+                "Technical/code content benefits from keyword + vector hybrid retrieval."
+            )
             return "hybrid"
-        elif analysis["complexity"] >= 4:
+
+        if analysis["complexity"] >= 4:
+            rationale["retrieval"] = (
+                "High complexity — MMR retrieval provides diverse, non-redundant results."
+            )
             return "mmr"
-        else:
-            return "similarity"
+
+        rationale["retrieval"] = "Standard similarity retrieval is sufficient."
+        return "similarity"

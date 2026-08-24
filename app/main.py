@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.utils.config import settings
 from app.dependencies import get_db, get_current_user, engine
-from app.api import auth, documents, queries, batch, admin, folders
+from app.api import auth, documents, queries, batch, admin, folders, policy
 
 
 # Lifespan manager
@@ -51,6 +51,7 @@ app.include_router(queries.router, prefix="/api/queries", tags=["Queries"])
 app.include_router(batch.router, prefix="/api/batch", tags=["Batch Processing"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(folders.router, prefix="/api/folders", tags=["Folders"])
+app.include_router(policy.router, prefix="/api/policy", tags=["Policy"])
 
 
 # Health check endpoint

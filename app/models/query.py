@@ -88,12 +88,17 @@ class QueryBase(BaseModel):
 
 class QueryCreate(QueryBase):
     """Query Creation Model"""
-    retrieval_strategy: Optional[str] = None
-    reranking_strategy: Optional[str] = None
-    prompt_template: Optional[str] = None
-    reasoning_level: Optional[str] = None  # basic, intermediate, advanced, expert
-    n_results: Optional[int] = 5  # Number of documents to retrieve
-    folder_id: Optional[str] = None  # Target specific folder for retrieval
+    # Strategy selection — pass None or "auto" for automatic policy-based selection,
+    # or a concrete value (e.g. "hybrid") for manual override.
+    retrieval_strategy: Optional[str] = None    # similarity | hybrid | mmr | auto
+    reranking_strategy: Optional[str] = None    # bm25 | cross_encoder | cohere | none | auto
+    prompt_template: Optional[str] = None       # factual_qa | analysis | comparison | creative | auto
+    reasoning_level: Optional[str] = None       # basic | intermediate | advanced | expert
+    # Embedding model to use at query time (must match the model used at ingestion
+    # if you want correct similarity scores; "auto" uses the policy default).
+    embedding_model: Optional[str] = None       # BAAI/bge-small-en-v1.5 | bge-base | bge-large | auto
+    n_results: Optional[int] = 5               # Number of chunks to retrieve
+    folder_id: Optional[str] = None            # Restrict retrieval to a specific folder
 
 
 class QueryResponse(QueryBase):

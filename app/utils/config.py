@@ -22,13 +22,22 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
     
+    # Generation provider — "openai" | "openrouter" | "huggingface"
+    generation_provider: str = "openrouter"
+
     # HuggingFace
     huggingface_api_key: Optional[str] = "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"
     hf_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
     hf_api_url: str = "https://api-inference.huggingface.co/models"
-    
+
     # OpenAI
     openai_api_key: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
+
+    # OpenRouter
+    openrouter_api_key: Optional[str] = None
+    openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    openrouter_api_url: str = "https://openrouter.ai/api/v1"
     
     # Cohere
     cohere_api_key: Optional[str] = None

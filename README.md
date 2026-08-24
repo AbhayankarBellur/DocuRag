@@ -1,162 +1,375 @@
 # MicroBrain
 
-MicroBrain is a multi-user RAG + SLM platform built to ingest user documents, organize them into chunks, embed them, store them in a vector database, retrieve and rerank relevant context, and generate answers with a local or hosted small language model.
+**Multi-user Retrieval-Augmented Generation platform with an intelligent policy engine that auto-selects the optimal chunking, embedding, and retrieval strategy for every document and query.**
 
-The current codebase already contains the main building blocks for a real RAG stack. What is still evolving is the breadth of document normalization, the policy-driven routing depth, and how broadly generation can fan out beyond the current SLM path.
+---
 
-## What is implemented today
+## Overview
 
-### Core pipeline
+MicroBrain is a self-hosted RAG API built with FastAPI, ChromaDB, and sentence-transformers. It exposes a full document ingestion → retrieval → generation pipeline through a REST API consumed by a Next.js frontend.
 
-- Multi-user auth with JWT-based login and per-user isolation.
-- Document upload and ingestion through the FastAPI backend.
-- **Folder-based document organization** for better categorization and targeted retrieval.
-- Parsing for PDF, DOCX, TXT, Markdown, and HTML inputs.
-- Chunking strategies for fixed, semantic, section-based, and recursive splits.
-- Embedding backends for BGE, Cohere, and OpenAI.
-- Vector storage backends for Chroma, FAISS, and Qdrant.
-- Retrieval strategies for similarity, hybrid, and MMR-style selection.
-- Re-ranking strategies including BM25, Cohere rerank, and cross-encoder rerank.
-- Generation through the current Hugging Face inference path.
-- Prompt template management with dynamic prompt formatting.
-- Evaluation modules for RAGAS and DeepEval.
-- Policy helpers that analyze documents and queries to recommend workflows.
-- **Configurable processing** - chunking, embedding, and storage options selectable from frontend.
-- **Configurable querying** - top-k retrieval, reasoning levels, and prompt templates from frontend.
+The core differentiator is the **Policy Engine** — a rule-based routing layer that analyses document structure and query intent at runtime and selects the most appropriate strategy across all five pipeline axes (chunking, embedding, retrieval, reranking, prompt template) without any user intervention. Every axis also accepts explicit override values, so manual control is always available.
 
-### Current execution flow
-
-1. A user uploads a document (with optional folder assignment and processing config).
-2. The ingestion engine extracts text and classifies the document type.
-3. The document is chunked, embedded, and stored in a vector index using selected strategies.
-4. A user query is embedded and matched against stored chunks (with folder filtering option).
-5. Retrieved context is assembled and passed into the SLM generation path.
-6. The prompt layer selects or formats a template based on query type.
-7. Query metadata, sources, and timing are stored for later inspection.
-
-## Capability matrix
-
-| Area | Status | Notes |
-| --- | --- | --- |
-| Document input normalization | Partial | Supports common text-document formats today; more modalities can be added. |
-| Document organization | Partial | Metadata, classification, and workflow selection exist, but richer organization rules are still evolving. |
-| Chunking | Implemented | Fixed, semantic, section, and recursive strategies are present. |
-| Embedding | Implemented | BGE, Cohere, and OpenAI embedding backends are available. |
-| Storage | Implemented | Chroma, FAISS, and Qdrant storage adapters exist. |
-| Retrieval | Implemented | Similarity, hybrid, and MMR retrieval paths are present. |
-| Ranking | Implemented | BM25, Cohere rerank, and cross-encoder rerank modules exist. |
-| Generation | Implemented | Current generation is routed through the SLM/Hugging Face path. |
-| Dynamic chat templates | Implemented | TemplateManager supports multiple prompt types and custom formatting. |
-| Evaluation | Implemented | RAGAS and DeepEval evaluation engines are included. |
-| Routing / policy | Partial | Workflow recommendation exists, but the active query path is still centered on the SLM flow. |
+---
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    U[User] --> API[FastAPI API]
-    API --> AUTH[JWT Auth]
-    API --> ING[Ingestion Engine]
-    ING --> CHUNK[Chunking Strategies]
-    CHUNK --> EMB[Embedding Models]
-    EMB --> VDB[Vector Store]
-    API --> Q[Query Service]
-    Q --> RET[Retrieval]
-    RET --> RANK[Reranking]
-    RANK --> PROMPT[Template Manager]
-    PROMPT --> SLM[SLM Generation]
-    SLM --> RESP[Answer + Sources]
-    RESP --> EVAL[Evaluation]
-    POL[Policy Layer] --> ING
-    POL --> Q
+```
+┌─────────────────────────────────────────────────────────┐
+│                      Next.js Frontend                    │
+└──────────────────────────┬──────────────────────────────┘
+                           │ REST
+┌──────────────────────────▼──────────────────────────────┐
+│                     FastAPI Backend                      │
+│                                                          │
+│  ┌──────────────┐   ┌──────────────┐   ┌─────────────┐  │
+│  │  /documents  │   │   /queries   │   │   /policy   │  │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬──────┘  │
+│         │                  │                  │          │
+│  ┌──────▼──────────────────▼──────────────────▼──────┐  │
+│  │                   Policy Engine                    │  │
+│  │   DocumentAnalyzer  ──►  WorkflowConfig            │  │
+│  │   QueryAnalyzer     ──►  (5 resolved strategies)  │  │
+│  └──────────────────────────┬──────────────────────── ┘  │
+│                             │                            │
+│  ┌──────────────────────────▼──────────────────────────┐ │
+│  │                   Engine Registry                    │ │
+│  │  Chunking │ Embedding │ VectorStore │ Retrieval      │ │
+│  │  Reranking │ Generation                              │ │
+│  └──────────────────────────────────────────────────── ┘ │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Repo structure
+### Request flow — document ingestion
 
-- `app/api/` - FastAPI routers for auth, documents, queries, batch, admin, and folders.
-- `app/services/` - Orchestration for document upload, query processing, auth, and batch flows.
-- `app/engines/` - Chunking, embedding, retrieval, reranking, generation, prompting, storage, ingestion, and evaluation engines.
-- `app/policy/` - Document and query analyzers plus workflow selection.
-- `app/models/` - SQLAlchemy and response models for users, documents, queries, and folders.
-- `microbrain-ui/` - Next.js frontend with React, TailwindCSS, and shadcn/ui components.
-- `tests/` - API, auth, engine, and policy coverage.
-- `Data/` - Local artifacts for prompts, chunks, embeddings, retrievals, responses, and processed outputs.
+```
+Upload file
+  → IngestionEngine (text extraction)
+  → PolicyEngine.resolve_workflow(document_content, overrides)
+  → EngineRegistry.get_chunking(strategy)   → chunk text
+  → EngineRegistry.get_embedding(model)     → embed chunks
+  → EngineRegistry.get_vector_store("chroma") → persist
+  → DB record updated with resolved strategy names
+```
 
-## What this repo is aiming for
+### Request flow — query
 
-The target is a proper RAG + SLM platform that can sit on top of user-provided documents and support:
+```
+POST /api/queries/
+  → PolicyEngine.resolve_workflow(query, overrides)
+  → EngineRegistry.get_embedding(model)     → embed query
+  → EngineRegistry.get_retrieval(strategy)  → fetch chunks
+  → EngineRegistry.get_reranking(strategy)  → optional rerank
+  → TemplateManager.get_template(...)       → build prompt
+  → GenerationEngine.generate_with_context  → answer
+  → DB record with resolved strategies + metrics
+```
 
-- multiple document types and normalization paths,
-- multiple chunking strategies,
-- multiple embedding backends,
-- multiple storage backends,
-- retrieval plus ranking control,
-- generation through a small language model,
-- evaluation and traceability,
-- policy-based routing that can select the best workflow per document or query,
-- dynamic chat templates instead of a single hard-coded prompt.
+---
 
-## Current assessment
+## Policy Engine
 
-The repo is already past the basic prototype stage. The main RAG pipeline pieces exist, and the SLM path is wired up. The biggest remaining work is to make routing more explicit and configurable, broaden document handling beyond common text-centric inputs, and tighten the evaluation and policy layer so it can choose workflows more consistently rather than only describing them.
+### Auto-selection signals
 
-In short: the platform foundation is here, but the README should treat it as an evolving RAG/SLM system rather than a finished generalized framework.
+| Signal | Source | Used for |
+|--------|--------|----------|
+| Has section headers | Document structure | → section chunking |
+| Code blocks present | Document structure | → recursive chunking |
+| Domain (legal/tech/academic) | Keyword density | → chunking + embedding size |
+| Word count / complexity | Document stats | → embedding model size |
+| Query intent (factual/analytical/comparison/creative) | Pattern matching | → retrieval + prompt template |
+| Multi-hop indicators (because/therefore/since) | Query signals | → hybrid retrieval + cross-encoder rerank |
+| Temporal indicators (before/after/during) | Query signals | → hybrid retrieval |
+| Query complexity score (1–5) | Word count + indicators | → reranking decision |
 
-## Quick start
+### Decision table
 
-### Backend Setup
+| Condition | Chunking | Embedding | Retrieval | Reranking |
+|-----------|----------|-----------|-----------|-----------|
+| Headers / numbered sections | `section` | — | — | — |
+| Code-heavy content | `recursive` | — | — | — |
+| High complexity or academic/legal domain | `semantic` | `bge-large` | — | — |
+| Technical domain | `recursive` | `bge-base` | `hybrid` | — |
+| Analytical / multi-hop query | — | — | `hybrid` | `bm25` |
+| Complex / comparison query | — | — | `mmr` | `cross_encoder` |
+| Default | `fixed` | `bge-small` | `similarity` | none |
 
-1. Create and activate a Python virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### Manual override
 
-2. Install backend dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+Every strategy field accepts an explicit value alongside `"auto"`. Pass any subset — the rest are auto-selected:
 
-3. Configure environment variables (copy `.env.example` to `.env` and update):
-   ```bash
-   cp .env.example .env
-   ```
+```json
+POST /api/queries/
+{
+  "question": "Compare the two approaches",
+  "retrieval_strategy": "mmr",
+  "reranking_strategy": "auto",
+  "embedding_model": "auto"
+}
+```
 
-4. Run the FastAPI backend:
-   ```bash
-   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
+---
 
-### Frontend Setup
+## API Reference
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd microbrain-ui
-   ```
+### Documents
 
-2. Install frontend dependencies:
-   ```bash
-   npm install
-   ```
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/documents/upload` | Upload document. `chunking_strategy` and `embedding_model` accept `"auto"` or explicit values |
+| `GET` | `/api/documents/list` | List user's documents |
+| `GET` | `/api/documents/{id}` | Get document metadata |
+| `DELETE` | `/api/documents/{id}` | Delete document and its vectors |
+| `PUT` | `/api/documents/{id}` | Update document metadata |
 
-3. Start the Next.js development server:
-   ```bash
-   npm run dev
-   ```
+### Queries
 
-4. Access the UI at `http://localhost:3000`
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/queries/` | Execute a query (all strategy fields optional, default `"auto"`) |
+| `GET` | `/api/queries/history` | Query history for current user |
+| `GET` | `/api/queries/{id}` | Get specific query result |
+| `POST` | `/api/batch` | Submit a batch of queries |
 
-## Recent Improvements
+### Policy
 
-- **Folder-based organization**: Documents can now be organized into folders for better categorization and targeted retrieval.
-- **Configurable processing**: Document upload now supports selecting chunking strategy, embedding model, and vector store from the frontend.
-- **Configurable querying**: Query interface now supports top-k retrieval count, reasoning levels (basic/intermediate/advanced), and prompt template selection.
-- **Fixed CORS and database issues**: Resolved CORS policy errors and database schema inconsistencies.
-- **Improved loading states**: Fixed infinite loading buffers on documents and queries pages.
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/policy/options` | All valid strategy values per axis (with `"auto"` prepended) |
+| `POST` | `/api/policy/workflow-preview` | Resolve and return a WorkflowConfig without executing anything |
 
-## Notes
+### Auth / Admin / Folders
 
-- The repository currently keeps local data artifacts under `Data/` for prompts, chunks, embeddings, retrievals, and responses.
-- The active query path uses the SLM generation flow and dynamic prompt templates.
-- Policy modules already recommend workflows, but they are still a layer above the current execution path rather than a fully autonomous router.
-- Database files (*.db) and uploaded documents are excluded from git via .gitignore.
+Standard JWT auth (`/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`), admin endpoints, and folder CRUD at `/api/folders`.
+
+Interactive docs available at `/docs` when the server is running.
+
+---
+
+## Supported Strategies
+
+### Chunking
+| Value | When to use |
+|-------|-------------|
+| `fixed` | Default, uniform size, fast |
+| `recursive` | Code or nested structured text |
+| `semantic` | High-complexity prose, academic/legal |
+| `section` | Documents with Markdown or numbered headers |
+
+### Embedding models
+| Value | Notes |
+|-------|-------|
+| `BAAI/bge-small-en-v1.5` | Default, fastest, 384-dim |
+| `BAAI/bge-base-en-v1.5` | Better quality, 768-dim |
+| `BAAI/bge-large-en-v1.5` | Best quality, 1024-dim, slower |
+
+### Retrieval
+| Value | When to use |
+|-------|-------------|
+| `similarity` | Default cosine vector search |
+| `hybrid` | Vector + BM25 keyword, best for technical/analytical queries |
+| `mmr` | Maximal Marginal Relevance — diverse, non-redundant results |
+
+### Reranking
+| Value | When to use |
+|-------|-------------|
+| `bm25` | Lightweight keyword reranking |
+| `cross_encoder` | Deep neural reranking (`cross-encoder/ms-marco-MiniLM-L-6-v2`) |
+| `cohere` | Cohere Rerank API (requires `COHERE_API_KEY`) |
+| `none` | Disabled |
+
+### Generation providers
+| Value | Notes |
+|-------|-------|
+| `openrouter` | Default. Free tier available (`nvidia/nemotron-3-super-120b-a12b:free`) |
+| `openai` | Requires billing credits |
+| `huggingface` | Requires `HUGGINGFACE_API_KEY` and network access to `api-inference.huggingface.co` |
+
+---
+
+## Setup
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+ (frontend)
+
+### Backend
+
+```bash
+# Create and activate virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate      # Linux/macOS
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env — set OPENROUTER_API_KEY at minimum
+
+# Start server
+uvicorn app.main:app --reload
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Environment variables (`.env`)
+
+```env
+# Required for generation
+GENERATION_PROVIDER=openrouter        # openrouter | openai | huggingface
+OPENROUTER_API_KEY=sk-or-v1-...
+OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+
+# Optional — OpenAI (requires billing credits)
+OPENAI_API_KEY=sk-proj-...
+OPENAI_MODEL=gpt-4o-mini
+
+# Optional — Cohere reranking
+COHERE_API_KEY=...
+
+# App secrets
+SECRET_KEY=change-me-in-production
+DATABASE_URL=sqlite+aiosqlite:///./microbrain.db
+```
+
+---
+
+## Project Structure
+
+```
+app/
+├── api/
+│   ├── auth.py            # JWT authentication
+│   ├── documents.py       # Document upload/management
+│   ├── queries.py         # Query execution
+│   ├── policy.py          # Policy options + workflow preview  ← new
+│   ├── folders.py
+│   ├── batch.py
+│   └── admin.py
+├── engines/
+│   ├── registry.py        # Lazy singleton engine registry     ← new
+│   ├── chunking/          # fixed | recursive | semantic | section
+│   ├── embedding/         # BGE small/base/large
+│   ├── generation/
+│   │   ├── hf_inference.py
+│   │   ├── openai_inference.py                                 ← new
+│   │   └── openrouter_inference.py                             ← new
+│   ├── retrieval/         # similarity | hybrid | mmr
+│   ├── reranking/         # bm25 | cross_encoder | cohere
+│   ├── storage/           # chroma | faiss | qdrant
+│   ├── prompting/
+│   ├── evaluation/        # deepeval | ragas stubs
+│   └── ingestion.py
+├── policy/
+│   ├── models.py          # WorkflowConfig + strategy enums    ← new
+│   ├── engine.py          # resolve_workflow()                 ← updated
+│   ├── document_analyzer.py                                    ← updated
+│   ├── query_analyzer.py                                       ← updated
+│   └── workflow_selector.py
+├── services/
+│   ├── document_service.py                                     ← updated
+│   └── query_service.py                                        ← updated
+├── models/
+│   ├── document.py
+│   ├── query.py                                                ← updated
+│   └── user.py
+└── utils/
+    └── config.py                                               ← updated
+```
+
+---
+
+## Potential Improvements
+
+### Retrieval quality
+
+1. **RAPTOR-style hierarchical indexing** — cluster chunks into summaries at multiple abstraction levels so both detail and theme queries are answered well.
+2. **HyDE (Hypothetical Document Embeddings)** — generate a hypothetical answer before retrieval to close the query/document representation gap.
+3. **Query expansion / RAG-Fusion** — generate N rephrased queries, retrieve independently, merge with Reciprocal Rank Fusion.
+4. **Late-interaction retrieval (ColBERT-style)** — token-level MaxSim scoring instead of single-vector similarity.
+5. **Contextual chunk enrichment** — prepend document title + section heading to each chunk before embedding, reducing context loss.
+
+### Policy engine
+
+6. **Feedback loop** — record user ratings per query, use them to adjust strategy weights over time (lightweight online learning).
+7. **Per-domain strategy profiles** — allow configuring a fixed strategy profile per detected domain instead of relying purely on heuristics.
+8. **Cost-aware routing** — factor token cost and latency into strategy selection (e.g. prefer BM25 reranking over cross-encoder when p95 latency exceeds threshold).
+9. **Confidence scoring** — when retrieved chunks have low similarity scores, automatically widen retrieval or switch strategy rather than returning a low-confidence answer.
+
+### Evaluation (RAGAS integration)
+
+10. **Automated RAGAS benchmarking** — the `app/engines/evaluation/ragas_eval.py` stub is already in place. Wire it to run on a fixed golden QA dataset after each query batch and record:
+    - `faithfulness` — is the answer grounded in the retrieved context?
+    - `answer_relevancy` — does the answer address the question?
+    - `context_precision` / `context_recall` — quality of the retrieved chunks
+11. **Policy vs. manual comparison harness** — run the same input set twice (once with `retrieval_strategy="auto"`, once with each explicit strategy) and compare RAGAS scores + token consumption. This directly validates whether the policy engine's selections outperform naive defaults.
+12. **Token efficiency metric** — log `prompt_tokens` and `completion_tokens` per query (already stored for OpenAI/OpenRouter). Add a dashboard metric for `quality_per_token = answer_relevancy / total_tokens`.
+
+### Infrastructure
+
+13. **Async embedding** — move `embed_batch` calls to a background task queue (Celery is already wired) so large document uploads don't block the request thread.
+14. **Streaming generation** — use SSE to stream token-by-token generation output to the frontend, dramatically improving perceived latency.
+15. **PostgreSQL migration** — SQLite works for development but is a write bottleneck under concurrent users. Alembic migrations are scaffolded; switching is a one-line `DATABASE_URL` change.
+16. **Vector store per user / collection sharding** — currently all users share one Chroma collection filtered by metadata. Separate collections per user would improve query isolation and deletion performance.
+17. **Retry + circuit-breaker on generation** — the current fallback is silent. Add tenacity-based retry with exponential backoff and a dead-letter queue for failed generations.
+
+### Document processing
+
+18. **OCR support** — add Tesseract/easyOCR for scanned PDFs that contain no extractable text.
+19. **Table-aware chunking** — detect and preserve table boundaries instead of splitting mid-row.
+20. **Multi-language embedding** — swap to `BAAI/bge-m3` for corpora that mix languages.
+
+---
+
+## RAGAS Evaluation Plan
+
+The goal is to objectively compare **policy auto-selection** vs **fixed manual strategies** on the same inputs.
+
+### Dataset
+Build a golden set of 50–100 QA pairs across document types (technical docs, legal text, academic papers). Each pair:
+```json
+{
+  "question": "...",
+  "ground_truth": "...",
+  "document_id": "..."
+}
+```
+
+### Metrics to collect per run
+| Metric | Source | Notes |
+|--------|--------|-------|
+| `faithfulness` | RAGAS | Answer supported by retrieved context |
+| `answer_relevancy` | RAGAS | Answer addresses the question |
+| `context_precision` | RAGAS | Fraction of retrieved chunks actually useful |
+| `context_recall` | RAGAS | Relevant chunks that were retrieved |
+| `total_tokens` | DB `token_usage` | Cost proxy |
+| `total_time_ms` | DB `total_time` | Latency |
+
+### Experimental conditions
+| Run | Config |
+|-----|--------|
+| A — Policy auto | `retrieval_strategy="auto"`, all others auto |
+| B — Similarity baseline | `retrieval_strategy="similarity"`, no reranking |
+| C — Hybrid + BM25 rerank | `retrieval_strategy="hybrid"`, `reranking_strategy="bm25"` |
+| D — MMR + cross-encoder | `retrieval_strategy="mmr"`, `reranking_strategy="cross_encoder"` |
+
+### Implementation path
+1. Activate `app/engines/evaluation/ragas_eval.py` — the stub is already present.
+2. Add a `POST /api/admin/evaluate` endpoint that accepts a golden dataset and runs all four conditions.
+3. Return a comparison table with mean scores and token costs per condition.
+4. Use this to tune the policy engine's decision thresholds.
+
+---
+
+## License
+
+MIT

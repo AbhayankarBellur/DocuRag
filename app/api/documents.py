@@ -14,13 +14,25 @@ async def upload_document(
     file: UploadFile = File(...),
     title: str = None,
     folder_id: str = None,
-    chunking_strategy: str = "fixed",
-    embedding_model: str = "BAAI/bge-small-en-v1.5",
+    chunking_strategy: str = "auto",
+    embedding_model: str = "auto",
     vector_store: str = "chroma",
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Upload a new document"""
+    """
+    Upload a new document.
+
+    **chunking_strategy** — ``auto`` (default) lets the policy engine choose
+    based on document structure and domain.  Explicit options:
+    ``fixed`` | ``recursive`` | ``semantic`` | ``section``.
+
+    **embedding_model** — ``auto`` (default) lets the policy engine choose
+    based on document complexity.  Explicit options:
+    ``BAAI/bge-small-en-v1.5`` | ``BAAI/bge-base-en-v1.5`` | ``BAAI/bge-large-en-v1.5``.
+
+    **vector_store** — ``chroma`` (default, currently the only supported store).
+    """
     doc_service = DocumentService(db)
     try:
         document = await doc_service.upload_document(
