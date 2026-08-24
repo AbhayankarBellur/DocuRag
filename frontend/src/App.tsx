@@ -6,20 +6,18 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import Queries from './pages/Queries'
+import Evaluate from './pages/Evaluate'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuthStore()
-  if (!token) {
-    return <Navigate to="/login" replace />
-  }
-  return <>{children}</>
+  return token ? <>{children}</> : <Navigate to="/login" replace />
 }
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/"
@@ -29,14 +27,13 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index          element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="documents" element={<Documents />} />
-          <Route path="queries" element={<Queries />} />
+          <Route path="queries"   element={<Queries />} />
+          <Route path="evaluate"  element={<Evaluate />} />
         </Route>
       </Routes>
     </BrowserRouter>
   )
 }
-
-export default App

@@ -52,6 +52,8 @@ class Query(Base):
     embedding_model = Column(String, nullable=True)
     generation_model = Column(String, nullable=True)
     prompt_template = Column(String, nullable=True)
+    # Full policy trace: resolved strategies + modes + rationale + escalation info
+    workflow_trace = Column(JSON, nullable=True)
     
     # Performance metrics
     retrieval_time = Column(Integer, nullable=True)  # milliseconds
@@ -115,6 +117,7 @@ class QueryResponse(QueryBase):
     embedding_model: Optional[str]
     generation_model: Optional[str]
     prompt_template: Optional[str]
+    workflow_trace: Optional[Dict[str, Any]]
     retrieval_time: Optional[int]
     generation_time: Optional[int]
     total_time: Optional[int]

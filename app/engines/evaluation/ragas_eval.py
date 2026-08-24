@@ -1,120 +1,147 @@
-"""RAGAS Evaluation Framework"""
-from typing import List, Dict, Any
-from ragas import evaluate
-from ragas.metrics import (
-    faithfulness,
-    answer_relevancy,
-    context_precision,
-    context_recall
-)
-from datasets import Dataset
+"""
+RAGAS Evaluation Engine
+-----------------------
+Wraps the ragas library with a graceful fallback so the application starts
+even when ragas / datasets are not installed.  Install both to enable real
+scoring:
+
+    pip install ragas datasets
+
+Without them the evaluator returns placeholder scores of 0.0 and logs a
+warning — useful for development without the full ML dependency stack.
+"""
+from __future__ import annotations
+
+import importlib
+import warnings
+from typing import Any, Dict, List, Optional
+
+
+def _ragas_available() -> bool:
+    try:
+        importlib.import_module("ragas")
+        importlib.import_module("datasets")
+        return True
+    except ImportError:
+        return False
 
 
 class RAGASEvaluation:
-    """RAGAS-based evaluation for RAG systems"""
-    
-    def __init__(self):
-        """Initialize RAGAS evaluator"""
-        self.metrics = [
-            faithfulness,
-            answer_relevancy,
-            context_precision,
-            context_recall
-        ]
-    
+    """RAGAS-based evaluation for RAG systems."""
+
+    def __init__(self) -> None:
+        self.available = _ragas_available()
+        if not self.available:
+            warnings.warn(
+                "ragas/datasets not installed — evaluation will return placeholder scores. "
+                "Run: pip install ragas datasets",
+                stacklevel=2,
+            )
+
+    # ------------------------------------------------------------------
+    # Primary entry-point
+    # ------------------------------------------------------------------
+
     def evaluate(
         self,
         queries: List[str],
         answers: List[str],
         contexts: List[List[str]],
-        ground_truths: List[str] = None
+        ground_truths: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        Evaluate RAG system using RAGAS metrics
-        
-        Args:
-            queries: List of queries
-            answers: List of generated answers
-            contexts: List of retrieved contexts for each query
-            ground_truths: Optional list of ground truth answers
-        
-        Returns:
-            Evaluation results with scores
+        Score a batch of query-answer-context triples.
+
+        Parameters
+        ----------
+        queries:       List of question strings.
+        answers:       List of generated answer strings.
+        contexts:      List of retrieved context lists (one list per query).
+        ground_truths: Optional list of reference answers (enables context_recall).
+
+        Returns
+        -------
+        Dict with faithfulness, answer_relevancy, context_precision,
+        context_recall (or None), overall_score.
         """
-        # Prepare dataset
-        data = {
-            "question": queries,
-            "answer": answers,
-            "contexts": contexts
-        }
-        
-        if ground_truths:
-            data["ground_truth"] = ground_truths
-        
-        dataset = Dataset.from_dict(data)
-        
+        if not self.available:
+            return self._placeholder(len(queries), has_gt=bool(ground_truths))
+
         try:
-            # Run evaluation
-            results = evaluate(
-                dataset=dataset,
-                metrics=self.metrics
+            from ragas import evaluate as ragas_evaluate
+            from ragas.metrics import (
+                faithfulness,
+                answer_relevancy,
+                context_precision,
+                context_recall,
             )
-            
-            # Convert to dictionary
-            return {
-                "faithfulness": results["faithfulness"],
-                "answer_relevancy": results["answer_relevancy"],
-                "context_precision": results["context_precision"],
-                "context_recall": results["context_recall"] if ground_truths else None,
-                "overall_score": self._calculate_overall_score(results)
+            from datasets import Dataset
+
+            data: Dict[str, Any] = {
+                "question": queries,
+                "answer": answers,
+                "contexts": contexts,
             }
-            
-        except Exception as e:
-            raise RuntimeError(f"RAGAS evaluation failed: {e}")
-    
+            metrics = [faithfulness, answer_relevancy, context_precision]
+
+            if ground_truths:
+                data["ground_truth"] = ground_truths
+                metrics.append(context_recall)
+
+            dataset = Dataset.from_dict(data)
+            result = ragas_evaluate(dataset=dataset, metrics=metrics)
+
+            scores = {
+                "faithfulness": float(result["faithfulness"]),
+                "answer_relevancy": float(result["answer_relevancy"]),
+                "context_precision": float(result["context_precision"]),
+                "context_recall": float(result["context_recall"]) if ground_truths else None,
+            }
+            scores["overall_score"] = self._overall(scores)
+            return scores
+
+        except Exception as exc:
+            warnings.warn(f"RAGAS evaluation failed: {exc}. Returning placeholders.", stacklevel=2)
+            return self._placeholder(len(queries), has_gt=bool(ground_truths))
+
     def evaluate_single(
         self,
         query: str,
         answer: str,
         contexts: List[str],
-        ground_truth: str = None
+        ground_truth: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Evaluate a single query-response pair
-        
-        Args:
-            query: Query text
-            answer: Generated answer
-            contexts: Retrieved contexts
-            ground_truth: Optional ground truth answer
-        
-        Returns:
-            Evaluation results
-        """
         return self.evaluate(
             queries=[query],
             answers=[answer],
             contexts=[contexts],
-            ground_truths=[ground_truth] if ground_truth else None
+            ground_truths=[ground_truth] if ground_truth else None,
         )
-    
-    def _calculate_overall_score(self, results: Dict[str, Any]) -> float:
-        """Calculate overall score from individual metrics"""
-        scores = [
-            results["faithfulness"],
-            results["answer_relevancy"],
-            results["context_precision"]
-        ]
-        
-        if "context_recall" in results and results["context_recall"] is not None:
-            scores.append(results["context_recall"])
-        
-        return sum(scores) / len(scores) if scores else 0
-    
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _overall(scores: Dict[str, Any]) -> float:
+        vals = [v for v in scores.values() if v is not None and isinstance(v, float)]
+        return round(sum(vals) / len(vals), 4) if vals else 0.0
+
+    @staticmethod
+    def _placeholder(n: int, has_gt: bool) -> Dict[str, Any]:
+        """Return zero scores when ragas is unavailable."""
+        return {
+            "faithfulness": 0.0,
+            "answer_relevancy": 0.0,
+            "context_precision": 0.0,
+            "context_recall": 0.0 if has_gt else None,
+            "overall_score": 0.0,
+            "_placeholder": True,
+        }
+
     def get_evaluation_info(self) -> Dict[str, Any]:
-        """Get evaluator information"""
         return {
             "framework": "ragas",
-            "metrics": [m.name for m in self.metrics],
-            "description": "RAGAS evaluation framework for RAG systems"
+            "available": self.available,
+            "metrics": ["faithfulness", "answer_relevancy", "context_precision", "context_recall"],
         }
