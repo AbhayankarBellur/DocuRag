@@ -2,6 +2,18 @@
 from typing import List, Dict, Any, Optional
 
 
+def _chroma_where(filters: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Convert a plain filter dict to Chroma's $and syntax when needed."""
+    if not filters:
+        return None
+    items = {k: v for k, v in filters.items() if v is not None}
+    if not items:
+        return None
+    if len(items) == 1:
+        return items
+    return {"$and": [{k: v} for k, v in items.items()]}
+
+
 class SimilarityRetrieval:
     """Similarity-based retrieval using vector search"""
     
@@ -35,31 +47,36 @@ class SimilarityRetrieval:
             results = self.vector_store.query(
                 query_embedding=query_embedding,
                 n_results=n_results,
-                where=filters
+                where=_chroma_where(filters)
             )
-            
-            # Format results
+
+            # Flatten Chroma's nested lists
             formatted_results = []
-            ids = results.get("ids", [[]])
+            ids       = results.get("ids", [[]])
             documents = results.get("documents", [[]])
             metadatas = results.get("metadatas", [[]])
             distances = results.get("distances", [[]])
 
+            # Chroma always returns nested lists — unwrap
             if ids and isinstance(ids[0], list):
-                ids = ids[0]
+                ids       = ids[0]
                 documents = documents[0]
-                metadatas = metadatas[0]
-                distances = distances[0]
+                metadatas = metadatas[0] if metadatas else []
+                distances = distances[0] if distances else []
 
             for i in range(len(ids)):
+                doc_id = ids[i]
+                # Guard: ensure id is a plain string
+                if isinstance(doc_id, list):
+                    doc_id = doc_id[0]
                 formatted_results.append({
-                    "id": ids[i],
-                    "text": documents[i],
-                    "metadata": metadatas[i],
-                    "score": distances[i] if distances else None,
-                    "retrieval_strategy": "similarity"
+                    "id":       str(doc_id),
+                    "text":     documents[i],
+                    "metadata": metadatas[i] if metadatas else {},
+                    "score":    float(distances[i]) if distances else None,
+                    "retrieval_strategy": "similarity",
                 })
-            
+
             return formatted_results
         except Exception as e:
             raise RuntimeError(f"Similarity retrieval failed: {e}")

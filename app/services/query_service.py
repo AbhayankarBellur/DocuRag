@@ -73,6 +73,60 @@ class QueryService:
         self._template_manager = TemplateManager()
 
     # ------------------------------------------------------------------
+    # Embedding model resolver — always matches the ingestion model
+    # ------------------------------------------------------------------
+
+    async def _resolve_embedding_model(
+        self,
+        document_id: Optional[str],
+        user_id: str,
+        override: Optional[str],
+    ) -> str:
+        """
+        Return the embedding model to use for a query.
+
+        Priority:
+        1. Explicit override from the caller (non-auto value)
+        2. Model recorded on the document at ingestion time
+        3. Policy engine default (bge-small)
+
+        Using the document's ingestion model is critical — querying a
+        768-dim collection with a 384-dim vector raises an error.
+        """
+        if override and override not in (None, "auto", ""):
+            return override
+
+        if document_id:
+            from sqlalchemy import select
+            from app.models.document import Document
+            result = await self.db.execute(
+                select(Document.embedding_model).where(
+                    Document.id == document_id,
+                    Document.user_id == user_id,
+                )
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                return row
+
+        # Fallback: query the collection to discover its dimension
+        try:
+            from app.engines.registry import get_registry
+            store = get_registry().get_vector_store("chroma")
+            # Peek at first stored vector to infer dimension
+            peek = store.get()
+            if peek and peek.get("embeddings") and peek["embeddings"]:
+                emb = peek["embeddings"][0]
+                if isinstance(emb, list) and len(emb) == 768:
+                    return "BAAI/bge-base-en-v1.5"
+                if isinstance(emb, list) and len(emb) == 1024:
+                    return "BAAI/bge-large-en-v1.5"
+        except Exception:
+            pass
+
+        return "BAAI/bge-small-en-v1.5"
+
+    # ------------------------------------------------------------------
     # Primary entry-point
     # ------------------------------------------------------------------
 
@@ -97,12 +151,18 @@ class QueryService:
 
         try:
             # ── 2. Resolve workflow ────────────────────────────────────
+            # Resolve embedding model first — must match ingestion model
+            resolved_embedding = await self._resolve_embedding_model(
+                document_id=query_data.document_id,
+                user_id=user_id,
+                override=getattr(query_data, "embedding_model", None),
+            )
             workflow = self._policy.resolve_workflow(
                 query=query_data.question,
                 retrieval_strategy=query_data.retrieval_strategy,
                 reranking_strategy=query_data.reranking_strategy,
                 prompt_template=query_data.prompt_template,
-                embedding_model=getattr(query_data, "embedding_model", None),
+                embedding_model=resolved_embedding,
             )
 
             print(
@@ -358,10 +418,16 @@ class QueryService:
         )
 
         start = time.time()
+        resolved_embedding = await self._resolve_embedding_model(
+            document_id=document_id,
+            user_id=user_id,
+            override=None,
+        )
         workflow = self._policy.resolve_workflow(
             query=question,
             retrieval_strategy=retrieval_strategy,
             reranking_strategy=reranking_strategy,
+            embedding_model=resolved_embedding,
         )
 
         embedder = self._registry.get_embedding(workflow.embedding_model)

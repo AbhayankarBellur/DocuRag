@@ -1,6 +1,19 @@
 """MMR (Maximal Marginal Relevance) Retrieval Strategy"""
 from typing import List, Dict, Any, Optional
 import numpy as np
+import numpy as np
+
+
+def _chroma_where(filters: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Convert a plain filter dict to Chroma's $and syntax when needed."""
+    if not filters:
+        return None
+    items = {k: v for k, v in filters.items() if v is not None}
+    if not items:
+        return None
+    if len(items) == 1:
+        return items
+    return {"$and": [{k: v} for k, v in items.items()]}
 
 
 class MMRRetrieval:
@@ -37,81 +50,76 @@ class MMRRetrieval:
         """
         try:
             # Get initial candidate results
-            candidates = self.vector_store.query(
+            raw = self.vector_store.query(
                 query_embedding=query_embedding,
-                n_results=n_results * 3,  # Get more candidates
-                where=filters
+                n_results=n_results * 3,
+                where=_chroma_where(filters),
             )
-            
-            if not candidates or not candidates.get("ids"):
+
+            if not raw or not raw.get("ids"):
                 return []
-            
-            # Extract data
-            doc_ids = candidates["ids"]
-            doc_texts = candidates["documents"]
-            doc_embeddings = candidates.get("embeddings", [])
-            doc_scores = candidates.get("distances", [0] * len(doc_ids))
-            
+
+            # Flatten Chroma nested lists
+            doc_ids       = raw["ids"][0]        if isinstance(raw["ids"][0], list)       else raw["ids"]
+            doc_texts     = raw["documents"][0]   if isinstance(raw["documents"][0], list) else raw["documents"]
+            doc_metas     = raw["metadatas"][0]   if isinstance(raw["metadatas"][0], list) else raw["metadatas"]
+            doc_distances = raw["distances"][0]   if raw.get("distances") and isinstance(raw["distances"][0], list) else (raw.get("distances") or [0.0] * len(doc_ids))
+            doc_embeddings = (raw["embeddings"][0] if raw.get("embeddings") and isinstance(raw["embeddings"][0], list)
+                              else raw.get("embeddings") or [])
+
+            n = len(doc_ids)
+            if n == 0:
+                return []
+
             if not doc_embeddings:
-                # Fallback if embeddings not available
+                # No embeddings returned — fall back to plain similarity order
                 return [
                     {
-                        "id": doc_ids[i],
+                        "id":   str(doc_ids[i]) if not isinstance(doc_ids[i], list) else str(doc_ids[i][0]),
                         "text": doc_texts[i],
-                        "metadata": candidates["metadatas"][i],
-                        "score": doc_scores[i],
-                        "retrieval_strategy": "mmr"
+                        "metadata": doc_metas[i] if doc_metas else {},
+                        "score": float(doc_distances[i]) if doc_distances else None,
+                        "retrieval_strategy": "mmr",
                     }
-                    for i in range(min(n_results, len(doc_ids)))
+                    for i in range(min(n_results, n))
                 ]
-            
-            # MMR algorithm
-            selected_indices = []
-            remaining_indices = list(range(len(doc_ids)))
-            
-            query_vec = np.array(query_embedding).reshape(1, -1)
-            doc_vecs = np.array(doc_embeddings)
-            
-            for _ in range(min(n_results, len(doc_ids))):
-                if not remaining_indices:
+
+            import numpy as np
+            doc_distances_f = [float(d) for d in doc_distances]
+            doc_vecs = np.array(doc_embeddings, dtype=float)
+
+            selected: List[int] = []
+            remaining = list(range(n))
+
+            for _ in range(min(n_results, n)):
+                if not remaining:
                     break
-                
                 mmr_scores = []
-                
-                for idx in remaining_indices:
-                    # Relevance to query
-                    relevance = doc_scores[idx]
-                    
-                    # Diversity from already selected
-                    max_similarity = 0
-                    if selected_indices:
-                        selected_vec = doc_vecs[selected_indices].reshape(-1, 1)
-                        current_vec = doc_vecs[idx].reshape(1, -1)
-                        similarities = np.dot(selected_vec.T, current_vec.T)
-                        max_similarity = np.max(similarities)
-                    
-                    # MMR score
-                    mmr_score = lambda_param * relevance - (1 - lambda_param) * max_similarity
-                    mmr_scores.append(mmr_score)
-                
-                # Select document with highest MMR score
-                best_idx = remaining_indices[np.argmax(mmr_scores)]
-                selected_indices.append(best_idx)
-                remaining_indices.remove(best_idx)
-            
-            # Format results
-            results = []
-            for idx in selected_indices:
-                results.append({
-                    "id": doc_ids[idx],
-                    "text": doc_texts[idx],
-                    "metadata": candidates["metadatas"][idx],
-                    "score": doc_scores[idx],
-                    "mmr_score": mmr_scores[selected_indices.index(idx)],
-                    "retrieval_strategy": "mmr"
-                })
-            
-            return results
+                for idx in remaining:
+                    relevance = doc_distances_f[idx]
+                    max_sim = 0.0
+                    if selected:
+                        sel_vecs = doc_vecs[selected]
+                        cur_vec  = doc_vecs[idx]
+                        sims = sel_vecs @ cur_vec / (
+                            np.linalg.norm(sel_vecs, axis=1) * np.linalg.norm(cur_vec) + 1e-10
+                        )
+                        max_sim = float(np.max(sims))
+                    mmr_scores.append(lambda_param * relevance - (1.0 - lambda_param) * max_sim)
+                best = remaining[int(np.argmax(mmr_scores))]
+                selected.append(best)
+                remaining.remove(best)
+
+            return [
+                {
+                    "id":   str(doc_ids[i]) if not isinstance(doc_ids[i], list) else str(doc_ids[i][0]),
+                    "text": doc_texts[i],
+                    "metadata": doc_metas[i] if doc_metas else {},
+                    "score": float(doc_distances_f[i]),
+                    "retrieval_strategy": "mmr",
+                }
+                for i in selected
+            ]
             
         except Exception as e:
             raise RuntimeError(f"MMR retrieval failed: {e}")

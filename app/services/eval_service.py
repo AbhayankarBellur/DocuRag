@@ -88,7 +88,7 @@ class EvalService:
                         document_id=doc_id,
                         retrieval_strategy=cfg["retrieval_strategy"],
                         reranking_strategy=cfg["reranking_strategy"],
-                        n_results=5,
+                        n_results=10,
                     )
                     queries.append(question)
                     answers.append(outcome["answer"])

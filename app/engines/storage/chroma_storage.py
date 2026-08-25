@@ -66,13 +66,11 @@ class ChromaStorage:
         ids: List[str]
     ) -> None:
         """
-        Add documents to the collection
-        
-        Args:
-            embeddings: List of embedding vectors
-            texts: List of document texts
-            metadatas: List of metadata dictionaries
-            ids: List of unique document IDs
+        Add documents to the collection.
+
+        Automatically handles embedding dimension mismatches: if the existing
+        collection was built with a different embedding size, it is deleted and
+        recreated at the new dimension before the documents are added.
         """
         try:
             if self.client is None:
@@ -83,12 +81,38 @@ class ChromaStorage:
                     self.collection["embeddings"].append(list(embedding))
                 return
 
-            self.collection.add(
-                embeddings=embeddings,
-                documents=texts,
-                metadatas=metadatas,
-                ids=ids
-            )
+            try:
+                self.collection.add(
+                    embeddings=embeddings,
+                    documents=texts,
+                    metadatas=metadatas,
+                    ids=ids
+                )
+            except Exception as inner_exc:
+                # Detect dimension mismatch and auto-recover
+                msg = str(inner_exc).lower()
+                if "dimension" in msg or "embedding" in msg:
+                    print(
+                        f"WARNING: Embedding dimension mismatch detected — "
+                        f"recreating collection '{self.collection_name}' "
+                        f"at new dimension {len(embeddings[0]) if embeddings else '?'}.",
+                        flush=True,
+                    )
+                    self.client.delete_collection(name=self.collection_name)
+                    self.collection = self.client.create_collection(
+                        name=self.collection_name,
+                        metadata={"hnsw:space": "cosine"},
+                    )
+                    self.collection.add(
+                        embeddings=embeddings,
+                        documents=texts,
+                        metadatas=metadatas,
+                        ids=ids,
+                    )
+                else:
+                    raise RuntimeError(f"Failed to add documents to ChromaDB: {inner_exc}")
+        except RuntimeError:
+            raise
         except Exception as e:
             raise RuntimeError(f"Failed to add documents to ChromaDB: {e}")
     
