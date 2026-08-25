@@ -1,0 +1,148 @@
+[
+  {
+    "batch_num": 1,
+    "model": "meta-llama/llama-3.1-8b-instruct",
+    "result": {
+      "run_id": "15c1800e",
+      "results": [
+        {
+          "condition": "auto",
+          "config": {
+            "retrieval": "auto",
+            "reranking": "auto"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 1.0,
+          "context_precision": 0.72,
+          "context_recall": 0.0,
+          "overall_score": 0.48,
+          "avg_tokens": 26.2,
+          "avg_latency_ms": 2612.6,
+          "n_items": 5,
+          "ragas_placeholder": false
+        },
+        {
+          "condition": "similarity",
+          "config": {
+            "retrieval": "similarity",
+            "reranking": "none"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 1.0,
+          "context_precision": 0.72,
+          "context_recall": 0.0,
+          "overall_score": 0.48,
+          "avg_tokens": 26.2,
+          "avg_latency_ms": 56.0,
+          "n_items": 5,
+          "ragas_placeholder": false
+        },
+        {
+          "condition": "hybrid_bm25",
+          "config": {
+            "retrieval": "hybrid",
+            "reranking": "bm25"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 0.8,
+          "context_precision": 0.48,
+          "context_recall": 0.0,
+          "overall_score": 0.37,
+          "avg_tokens": 34.0,
+          "avg_latency_ms": 71.2,
+          "n_items": 5,
+          "ragas_placeholder": false
+        },
+        {
+          "condition": "mmr_cross_encoder",
+          "config": {
+            "retrieval": "mmr",
+            "reranking": "cross_encoder"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 1.0,
+          "context_precision": 0.8,
+          "context_recall": 0.0,
+          "overall_score": 0.5,
+          "avg_tokens": 26.4,
+          "avg_latency_ms": 1776.2,
+          "n_items": 5,
+          "ragas_placeholder": false
+        }
+      ]
+    }
+  },
+  {
+    "batch_num": 2,
+    "model": "meta-llama/llama-3.1-8b-instruct",
+    "result": {
+      "run_id": "ad454223",
+      "results": [
+        {
+          "condition": "auto",
+          "config": {
+            "retrieval": "auto",
+            "reranking": "auto"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 0.8,
+          "context_precision": 0.56,
+          "context_recall": 0.0,
+          "overall_score": 0.39,
+          "avg_tokens": 25.6,
+          "avg_latency_ms": 195.2,
+          "n_items": 5,
+          "ragas_placeholder": false
+        },
+        {
+          "condition": "similarity",
+          "config": {
+            "retrieval": "similarity",
+            "reranking": "none"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 0.8,
+          "context_precision": 0.56,
+          "context_recall": 0.0,
+          "overall_score": 0.39,
+          "avg_tokens": 25.6,
+          "avg_latency_ms": 62.2,
+          "n_items": 5,
+          "ragas_placeholder": false
+        },
+        {
+          "condition": "hybrid_bm25",
+          "config": {
+            "retrieval": "hybrid",
+            "reranking": "bm25"
+          },
+          "faithfulness": 0.0,
+          "answer_relevancy": 0.6,
+          "context_precision": 0.36,
+          "context_recall": 0.0,
+          "overall_score": 0.24,
+          "avg_tokens": 53.6,
+          "avg_latency_ms": 72.0,
+          "n_items": 5,
+          "ragas_placeholder": false
+        },
+        {
+          "condition": "mmr_cross_encoder",
+          "config": {
+            "retrieval": "mmr",
+            "reranking": "cross_encoder"
+          },
+          "faithfulness": 0.2,
+          "answer_relevancy": 0.8,
+          "context_precision": 0.44,
+          "context_recall": 0.0,
+          "overall_score": 0.36,
+          "avg_tokens": 25.6,
+          "avg_latency_ms": 194.8,
+          "n_items": 5,
+          "ragas_placeholder": false
+        }
+      ]
+    }
+  }
+]
